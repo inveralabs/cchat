@@ -1,0 +1,4 @@
+index.db
+index.db-wal
+index.db-shm
+__pycache__/

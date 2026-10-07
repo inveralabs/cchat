@@ -1,0 +1,19 @@
+{
+ "pins": [
+  {
+   "uid": "c1178923066b",
+   "pinned_at": "2026-09-25T17:21:52.771052+00:00"
+  }
+ ],
+ "deprecated": [],
+ "titles": [],
+ "msgpins": [
+  {
+   "uid": "e28ac5bb5b15",
+   "line": 1001,
+   "at": "2026-09-20T12:55:00.363909+00:00",
+   "who": "claude",
+   "label": "## Start here You know how a swap becomes a flow, a ledger row, a position, and a wallet row. Now the question changes. Not \"what did this wallet do\" but \"shou"
+  }
+ ]
+}

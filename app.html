@@ -1,0 +1,3273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cchat — Claude Code & Codex history</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --plane: #f9f9f7;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --ring: rgba(11,11,11,.10);
+  --accent: #2a78d6;
+  --accent-soft: rgba(42,120,214,.10);
+  --good: #0ca30c;
+  --critical: #d03b3b;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+  /* sequential blue 100 -> 700 */
+  --q0: #f0efec; --q1: #cde2fb; --q2: #9ec5f4; --q3: #5598e7; --q4: #2a78d6; --q5: #184f95;
+  --wash: rgba(11,11,11,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --plane: #0d0d0d;
+    --ink: #fff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --ring: rgba(255,255,255,.10);
+    --accent: #3987e5;
+    --accent-soft: rgba(57,135,229,.14);
+    --good: #0ca30c;
+    --critical: #d03b3b;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --q0: #232322; --q1: #104281; --q2: #184f95; --q3: #256abf; --q4: #3987e5; --q5: #86b6ef;
+    --wash: rgba(255,255,255,.05);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19; --plane: #0d0d0d; --ink: #fff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10);
+  --accent: #3987e5; --accent-soft: rgba(57,135,229,.14); --good: #0ca30c; --critical: #d03b3b;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  --q0: #232322; --q1: #104281; --q2: #184f95; --q3: #256abf; --q4: #3987e5; --q5: #86b6ef;
+  --wash: rgba(255,255,255,.05);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--plane); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; }
+::selection { background: var(--accent-soft); }
+
+/* ---------- shell ---------- */
+.app { display: grid; grid-template-columns: var(--side, 262px) 6px 1fr;
+       grid-template-rows: auto 1fr; height: 100%; }
+
+/* drag the edge of the sidebar: long project paths need the room, narrow
+   windows need it back */
+.sidegrip {
+  grid-area: 2 / 2; cursor: col-resize; position: relative; z-index: 10;
+  background: none; border: 0; padding: 0; margin-left: -3px;
+}
+.sidegrip::after {
+  content: ''; position: absolute; inset: 0 auto 0 2px; width: 2px;
+  background: var(--accent); opacity: 0; transition: opacity .12s;
+}
+.sidegrip:hover::after, .sidegrip:focus-visible::after, .sizing .sidegrip::after { opacity: 1; }
+.sidegrip:focus { outline: none; }
+.sizing { cursor: col-resize; user-select: none; }
+header {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 14px;
+  padding: 10px 16px; background: var(--surface-1);
+  border-bottom: 1px solid var(--grid); position: sticky; top: 0; z-index: 20;
+}
+.brand { display: flex; align-items: baseline; gap: 8px; font-weight: 650; letter-spacing: -.01em; }
+.brand small { color: var(--muted); font-weight: 400; font-size: 12px; }
+.search { flex: 1; max-width: 620px; position: relative; }
+.search input {
+  width: 100%; padding: 8px 34px 8px 32px; border-radius: 8px;
+  border: 1px solid var(--axis); background: var(--plane); outline: none;
+}
+.search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search .ico { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.search kbd {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font: 11px/1 ui-monospace, monospace; color: var(--muted);
+  border: 1px solid var(--grid); border-radius: 4px; padding: 3px 5px;
+}
+.hbtn {
+  padding: 6px 10px; border-radius: 7px; border: 1px solid var(--axis);
+  color: var(--ink-2); font-size: 13px;
+}
+.hbtn:hover { background: var(--wash); color: var(--ink); }
+
+.tabs { display: flex; gap: 2px; background: var(--wash); padding: 2px; border-radius: 8px; flex: none; }
+.tab { padding: 5px 12px; border-radius: 6px; font-size: 12.5px; color: var(--ink-2); font-weight: 550; }
+.tab:hover { color: var(--ink); }
+.tab.on { background: var(--surface-1); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+.tab b { font-weight: 600; color: var(--accent); margin-left: 3px; }
+
+/* ---------- dashboard scope header ---------- */
+.scope {
+  display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+  padding: 0 2px 14px; margin-bottom: 2px; border-bottom: 1px solid var(--grid);
+}
+.scope .snm { min-width: 0; }
+.scope h1 { margin: 0; font-size: 24px; font-weight: 680; letter-spacing: -.02em; line-height: 1.15; }
+.scope .p { font: 11.5px ui-monospace, monospace; color: var(--muted); margin-top: 3px; word-break: break-all; }
+.scope .grow { flex: 1; }
+.scope .acts { display: flex; gap: 6px; }
+.scope .allbtn { font-size: 12px; }
+
+/* ---------- dashboard ---------- */
+.lenses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1150px) { .lenses { grid-template-columns: 1fr; } }
+.lenses .card { margin-bottom: 0; }
+.pinrow, .lensrow {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--grid); cursor: pointer;
+}
+.pinrow:last-child, .lensrow:last-child { border-bottom: 0; }
+.pinrow:hover, .lensrow:hover { background: var(--wash); }
+.pinrow .t, .lensrow .t { font-size: 12.5px; font-weight: 600; overflow: hidden;
+                          text-overflow: ellipsis; white-space: nowrap; }
+.pinrow .m, .lensrow .m { font-size: 11px; color: var(--muted); grid-column: 1 / -1;
+                          display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pinrow .s, .lensrow .s { grid-column: 1 / -1; }
+.pinrow .s .strip, .lensrow .s .strip { margin-top: 3px; }
+.lensrow .v { font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.pinrow .acts, .lensrow .acts { display: flex; gap: 5px; align-items: center; }
+.pchip {
+  display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 5px;
+  background: var(--accent-soft); color: var(--accent); font-size: 10.5px; font-weight: 600;
+}
+.pchip:hover { text-decoration: underline; }
+.pins-empty { color: var(--muted); font-size: 12.5px; padding: 6px 0; }
+.pingrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 4px 18px; }
+.pgroup { min-width: 0; }
+.pgroup h4 {
+  margin: 0 0 3px; padding-bottom: 3px; border-bottom: 1px solid var(--grid);
+  font: 600 10px/1.3 system-ui, sans-serif; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted); display: flex; gap: 6px; align-items: baseline;
+}
+.pgroup h4 em { font-style: normal; color: var(--axis); font-variant-numeric: tabular-nums; }
+.pgroup h4 button { color: inherit; font: inherit; letter-spacing: inherit; }
+.pgroup h4 button:hover { color: var(--accent); }
+.pitem {
+  display: grid; grid-template-columns: 1fr auto; gap: 0 6px; align-items: center;
+  padding: 3px 0; cursor: pointer; border-radius: 5px;
+}
+.pitem:hover { background: var(--wash); }
+.pitem .t { font-size: 12px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pitem .b { display: flex; gap: 3px; opacity: .55; }
+.pitem:hover .b { opacity: 1; }
+.pitem .b .btn { padding: 1px 5px; font-size: 10.5px; }
+.pitem .m { grid-column: 1 / -1; display: flex; gap: 7px; align-items: center;
+            font-size: 10px; color: var(--muted); }
+.pitem .m > span, .pitem .m > em { flex: none; white-space: nowrap; }
+.pitem .m .strip { margin-top: 0; height: 7px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.btn.pin { padding: 3px 8px; font-size: 12px; line-height: 1.2; }
+.btn.pin.on { color: #fab219; border-color: #fab219; }
+.btn.ren { color: var(--muted); }
+.btn.ren:hover { color: var(--accent); border-color: var(--accent); }
+.titleedit {
+  font: inherit; font-weight: 600; color: var(--ink); background: var(--plane);
+  border: 1px solid var(--accent); border-radius: 6px; padding: 2px 7px;
+  width: 100%; max-width: 560px; outline: none;
+}
+.renamed { position: relative; }
+.renamed::after {
+  content: '✎'; font-size: 9px; color: var(--muted); margin-left: 5px; vertical-align: super;
+}
+.btn.dep { color: var(--muted); }
+.btn.dep:hover { color: var(--s2); border-color: var(--s2); }
+.btn.del { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 45%, var(--axis)); }
+.btn.del.arm { background: var(--critical); color: #fff; border-color: var(--critical); font-weight: 600; }
+.pitem .m em { font-style: normal; color: var(--axis); }
+
+/* ---------- sidebar ---------- */
+aside {
+  grid-area: 2 / 1; background: var(--surface-1); border-right: 1px solid var(--grid);
+  overflow-y: auto; padding: 12px 0 40px;
+}
+.side-h {
+  padding: 6px 16px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); display: flex; justify-content: space-between; align-items: center;
+}
+.proj {
+  display: block; width: 100%; text-align: left; padding: 7px 16px;
+  border-left: 2px solid transparent; line-height: 1.35;
+}
+.proj:hover { background: var(--wash); }
+.proj.on { background: var(--accent-soft); border-left-color: var(--accent); }
+.proj .n { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.proj .nm { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj .ct { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; flex: none; }
+.proj .sub { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- main ---------- */
+main { grid-area: 2 / 3; overflow-y: auto; padding: 18px 22px 60px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.tile {
+  background: var(--surface-1); border: 1px solid var(--ring); border-radius: 10px; padding: 11px 13px;
+}
+.tile .v { font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; }
+.tile .k { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+
+.card {
+  background: var(--surface-1); border: 1px solid var(--ring); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.card > h2 {
+  margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--ink);
+  display: flex; align-items: center; gap: 10px;
+}
+.card > h2 .sub { color: var(--muted); font-weight: 400; font-size: 12px; }
+
+/* ---------- heatmap ---------- */
+.hm-wrap { overflow-x: auto; padding-bottom: 4px; }
+.hm { display: flex; gap: 3px; align-items: flex-start; }
+.hm-mon { display: flex; gap: 3px; height: 12px; margin-bottom: 3px; color: var(--muted); font-size: 10px; }
+.hm-col { display: grid; grid-template-rows: repeat(7, 11px); gap: 3px; }
+.cell { width: 11px; height: 11px; border-radius: 2.5px; background: var(--q0); border: 0; padding: 0; }
+.cell[data-l="1"] { background: var(--q1); } .cell[data-l="2"] { background: var(--q2); }
+.cell[data-l="3"] { background: var(--q3); } .cell[data-l="4"] { background: var(--q4); }
+.cell[data-l="5"] { background: var(--q5); }
+.cell:hover { outline: 2px solid var(--ink); outline-offset: 1px; }
+.cell.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.hm-legend { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 11px; margin-left: auto; }
+.hm-legend i { width: 11px; height: 11px; border-radius: 2.5px; display: block; }
+#tip {
+  position: fixed; z-index: 60; pointer-events: none; opacity: 0; transition: opacity .1s;
+  background: var(--surface-1); color: var(--ink); border: 1px solid var(--ring);
+  border-radius: 8px; padding: 7px 9px; font-size: 12px; line-height: 1.4;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18); max-width: 260px;
+}
+#tip b { font-variant-numeric: tabular-nums; }
+
+/* ---------- heatmap + usage, side by side ---------- */
+.duo { display: grid; grid-template-columns: auto minmax(360px, 1fr); gap: 14px; align-items: start; }
+.duo > .card { margin-bottom: 16px; min-width: 0; }
+@media (max-width: 1180px) { .duo { grid-template-columns: 1fr; } }
+
+/* ---------- how each model works ---------- */
+.mwrap { overflow-x: auto; }
+.mtab { border-collapse: separate; border-spacing: 0; font-size: 11.5px; width: 100%; min-width: 720px; }
+.mtab th, .mtab td { padding: 5px 9px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+.mtab thead th {
+  position: sticky; top: 0; background: var(--surface-1); z-index: 2;
+  font: 600 9.5px/1.2 system-ui, sans-serif; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--axis); white-space: nowrap; text-align: left;
+}
+.mtab thead th.n { text-align: right; }
+.mtab tbody tr:hover { background: var(--wash); }
+.mtab tbody tr:last-child td { border-bottom: 0; }
+.mtab td.model { font-weight: 600; white-space: nowrap; }
+.mtab td.model i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.mtab td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* value + rail: fixed widths so numbers and bars line up down the column */
+.meter { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.meter b { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
+.meter .rail { width: 32px; height: 3px; border-radius: 2px; background: var(--grid); flex: none; overflow: hidden; }
+.meter .rail i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.meter.none b { color: var(--muted); font-weight: 400; }
+
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chips { gap: 3px; }
+.chips span {
+  display: inline-flex; align-items: baseline; gap: 3px; padding: 1px 5px; border-radius: 4px;
+  background: var(--wash); font: 10px ui-monospace, SFMono-Regular, monospace; color: var(--ink-2);
+  white-space: nowrap;
+}
+.chips span em { font-style: normal; color: var(--muted); font-size: 9px; }
+.chips span.arrow { color: var(--ink-2); }
+.chips span.arrow u { text-decoration: none; color: var(--muted); }
+
+/* ---------- usage by model ---------- */
+.ulegend { display: flex; align-items: center; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+.ulegend span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+.ulegend i { width: 9px; height: 9px; border-radius: 2px; display: block; }
+.urow { display: grid; grid-template-columns: 122px 1fr auto; align-items: center; gap: 9px; padding: 1px 0; }
+.uname { font-size: 11.5px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uname small { display: block; font-weight: 400; color: var(--muted); font-size: 10px;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.utrack { display: flex; gap: 2px; height: 11px; align-items: stretch; }
+.utrack i { display: block; border-radius: 2px; min-width: 2px; }
+.utrack i:first-child { border-radius: 4px 2px 2px 4px; }
+.utrack i:last-child { border-radius: 2px 4px 4px 2px; }
+.utrack i:hover { outline: 2px solid var(--ink); outline-offset: 1px; }
+.uval { font-size: 11.5px; font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; min-width: 58px; }
+.uval small { display: block; font-weight: 400; color: var(--muted); font-size: 10px; }
+.utable { margin-top: 12px; }
+.utable > summary { cursor: pointer; font-size: 12px; color: var(--ink-2); list-style: none; }
+.utable > summary::-webkit-details-marker { display: none; }
+.utable > summary:hover { color: var(--accent); }
+.utable table { border-collapse: collapse; font-size: 12px; width: 100%; margin-top: 8px; }
+.utable th, .utable td { padding: 5px 9px; border-bottom: 1px solid var(--grid); text-align: right; font-variant-numeric: tabular-nums; }
+.utable th:first-child, .utable td:first-child { text-align: left; font-variant-numeric: normal; }
+.utable thead th { background: var(--wash); font-weight: 600; font-size: 11px; color: var(--ink-2); }
+.unote { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 9px 0 0; max-width: 84ch; }
+.unote code { font-family: ui-monospace, monospace; font-size: 11px; }
+.uwarn { color: var(--s2); margin-top: 10px; }
+.mtab td.muted { color: var(--muted); }
+
+/* ---------- toolbar + list ---------- */
+.bar { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; flex-wrap: wrap; }
+.bar .grow { flex: 1; }
+.bar select { padding: 6px 8px; border-radius: 7px; border: 1px solid var(--axis); background: var(--surface-1); }
+
+/* ---------- chat filters: agent, time, model ---------- */
+.filters {
+  background: var(--surface-1); border: 1px solid var(--grid); border-radius: 12px;
+  padding: 12px 14px 14px; margin-bottom: 16px;
+}
+.fhead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.fhead h2 { margin: 0; font-size: 13px; font-weight: 650; }
+.fsum { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; flex: 1; min-width: 0; }
+.fsum b { color: var(--ink); font-weight: 600; }
+.fclear { color: var(--accent); font-size: 12.5px; font-weight: 550; padding: 2px 4px; border-radius: 5px; }
+.fclear:hover { background: var(--accent-soft); }
+.fgrid { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 10px 12px; align-items: start; }
+.flabel {
+  font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); padding-top: 7px;
+}
+.seg { justify-self: start; display: inline-flex; flex-wrap: wrap; gap: 2px; background: var(--wash); padding: 3px; border-radius: 9px; }
+.seg button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 7px;
+  font-size: 12.5px; font-weight: 550; color: var(--ink-2); white-space: nowrap;
+}
+.seg button:hover:not(:disabled) { color: var(--ink); }
+.seg button.on { background: var(--surface-1); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+.seg button:disabled { opacity: .45; cursor: default; }
+.seg .n, .mchip .n { font-size: 11px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--muted)); flex: none; }
+.ftime { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.range { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.range[hidden] { display: none; }
+.range input {
+  padding: 4px 8px; border-radius: 7px; border: 1px solid var(--axis); background: var(--plane);
+  font-size: 12.5px; font-variant-numeric: tabular-nums;
+}
+.range input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.range .arrow { color: var(--muted); }
+.rangeinfo { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.fmodels { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.mgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mgname { font-size: 11.5px; color: var(--ink-2); font-weight: 600; min-width: 84px;
+          display: inline-flex; align-items: center; gap: 6px; }
+.mchip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--grid); background: var(--plane); font-size: 12.5px; color: var(--ink-2);
+  white-space: nowrap;
+}
+.mchip:hover:not(:disabled) { border-color: var(--axis); color: var(--ink); }
+.mchip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); font-weight: 550; }
+.mchip.on::before { content: '✓'; font-size: 11px; color: var(--accent); }
+.mchip:disabled { opacity: .45; cursor: default; }
+.mmore { font-size: 12px; color: var(--accent); padding: 3px 6px; border-radius: 6px; }
+.mmore:hover { background: var(--accent-soft); }
+.fnone { color: var(--muted); font-size: 12.5px; padding-top: 5px; }
+.seg button:focus-visible, .mchip:focus-visible, .mmore:focus-visible, .fclear:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+@media (max-width: 640px) {
+  .fgrid { grid-template-columns: 1fr; gap: 4px; }
+  .flabel { padding-top: 6px; }
+  .mgname { min-width: 0; width: 100%; }
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 550;
+  border: 1px solid transparent;
+}
+.chip button { color: inherit; font-weight: 700; line-height: 1; }
+.count { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+.list { display: flex; flex-direction: column; gap: 8px; }
+.row {
+  background: var(--surface-1); border: 1px solid var(--ring); border-radius: 11px;
+  padding: 11px 14px; text-align: left; width: 100%; display: block;
+  transition: border-color .12s, transform .12s;
+}
+.row:hover { border-color: var(--accent); }
+.row:active { transform: translateY(1px); }
+.row .top { display: flex; align-items: baseline; gap: 10px; }
+.row .ttl { font-weight: 600; font-size: 14.5px; letter-spacing: -.01em; flex: 1; }
+.row .when { color: var(--muted); font-size: 12px; flex: none; font-variant-numeric: tabular-nums; }
+.row .prev {
+  color: var(--ink-2); font-size: 13px; margin-top: 3px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.meta { display: flex; align-items: center; gap: 5px 9px; margin-top: 7px; flex-wrap: wrap;
+        color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.meta .dot { color: var(--axis); }
+.tag {
+  display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: 5px;
+  background: var(--wash); color: var(--ink-2); font-size: 11px; font-weight: 500;
+}
+.tag i { width: 7px; height: 7px; border-radius: 50%; display: block; flex: none; }
+.hits { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.hit {
+  font-size: 12.5px; color: var(--ink-2); padding: 5px 8px; border-radius: 7px;
+  background: var(--plane); border-left: 2px solid var(--axis); cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; display: block; width: 100%; text-align: left;
+}
+.hit:hover { border-left-color: var(--accent); }
+.hit b { color: var(--ink); background: var(--accent-soft); border-radius: 3px; padding: 0 2px; }
+.hit .r { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; margin-right: 6px; }
+.empty { text-align: center; color: var(--muted); padding: 48px 20px; }
+.more { display: block; margin: 14px auto 0; padding: 8px 16px; border: 1px solid var(--axis); border-radius: 8px; color: var(--ink-2); }
+.more:hover { background: var(--wash); }
+
+/* ---------- buttons, groups, toast ---------- */
+.btn {
+  padding: 4px 10px; border: 1px solid var(--axis); border-radius: 7px;
+  font-size: 12px; color: var(--ink-2); background: var(--surface-1); white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.1); color: #fff; }
+.btn.dead { border-style: dashed; opacity: .65; }
+.btn.primary.dead { background: none; color: var(--critical); border-color: var(--critical); }
+.row-actions { display: flex; gap: 6px; opacity: .5; transition: opacity .12s; flex: none; }
+.row:hover .row-actions, .row:focus-visible .row-actions, .row.sel .row-actions { opacity: 1; }
+.row-actions .btn { padding: 3px 9px; font-size: 11.5px; }
+.row.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.row:focus-visible { outline: none; border-color: var(--accent); }
+.ghead {
+  position: sticky; top: -18px; z-index: 5; background: var(--plane);
+  padding: 12px 2px 5px; font-size: 11px; font-weight: 650; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.ghead:first-child { padding-top: 2px; }
+.sk {
+  height: 78px; border-radius: 11px; border: 1px solid var(--ring);
+  background: linear-gradient(90deg, var(--surface-1) 0%, var(--wash) 50%, var(--surface-1) 100%);
+  background-size: 220% 100%; animation: sk 1.3s linear infinite;
+}
+@keyframes sk { to { background-position: -220% 0; } }
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 14px); z-index: 80;
+  background: var(--surface-1); border: 1px solid var(--ring); border-radius: 10px;
+  padding: 10px 15px; font-size: 13px; box-shadow: 0 8px 30px rgba(0,0,0,.22);
+  opacity: 0; pointer-events: none; transition: opacity .16s, transform .16s; max-width: 70vw;
+}
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#toast.bad { border-color: var(--critical); color: var(--critical); }
+#toast code { font: 12px ui-monospace, monospace; color: var(--ink-2); }
+
+/* ---------- turn strip: the shape of a chat at a glance ---------- */
+.strip { display: flex; gap: 1px; margin-top: 7px; align-items: flex-end; height: 9px; }
+.strip i { width: 3px; height: 100%; border-radius: 1px; display: block; flex: none; }
+.strip i[data-v="0"] { background: var(--grid); height: 3px; }
+.strip i[data-v="1"] { background: var(--q2); height: 5px; }
+.strip i[data-v="2"] { background: var(--q3); height: 7px; }
+.strip i[data-v="3"] { background: var(--q4); }
+.strip i[data-v="4"] { background: var(--critical); }
+.strip i[data-v="5"] { background: #fab219; }
+.striplegend { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 11px; }
+.striplegend span { display: inline-flex; align-items: center; gap: 4px; }
+.striplegend i { width: 3px; height: 8px; border-radius: 1px; display: block; }
+
+/* ---------- turn map inside a chat ---------- */
+.turnmap { display: flex; gap: 1px; align-items: flex-end; height: 18px; margin-top: 10px; }
+.turnmap button {
+  flex: 1 1 0; min-width: 2px; height: 100%; padding: 0; border-radius: 1px;
+  background: var(--grid); position: relative;
+}
+.turnmap button[data-v="0"] { background: var(--grid); height: 30%; }
+.turnmap button[data-v="1"] { background: var(--q2); height: 50%; }
+.turnmap button[data-v="2"] { background: var(--q3); height: 72%; }
+.turnmap button[data-v="3"] { background: var(--q4); height: 100%; }
+.turnmap button[data-v="4"] { background: var(--critical); height: 100%; }
+.turnmap button[data-v="5"] { background: #fab219; height: 100%; }
+.turnmap button:hover { outline: 2px solid var(--ink); outline-offset: 1px; z-index: 1; }
+.turnmap button.here { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 2; }
+.mapnote { display: flex; align-items: center; gap: 10px; margin-top: 5px;
+           font-size: 10.5px; color: var(--muted); }
+.mapnote .grow { flex: 1; }
+
+/* ---------- project overview ---------- */
+.ov { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 1000px) { .ov { grid-template-columns: 1fr; } }
+.ov h4 { margin: 0 0 6px; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.ov .path { font: 11px ui-monospace, monospace; color: var(--muted); word-break: break-all; margin-bottom: 8px; }
+.ov .facts { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--ink-2);
+             font-variant-numeric: tabular-nums; }
+.ov .facts b { color: var(--ink); font-weight: 600; }
+.ov ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.ov li { font-size: 11.5px; color: var(--ink-2); display: flex; gap: 7px; }
+.ov li button { font: 11px ui-monospace, monospace; color: var(--ink-2); text-align: left;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov li button:hover { color: var(--accent); }
+.ov li em { font-style: normal; color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
+
+/* ---------- pick up where you left off ---------- */
+.pickup { border-left: 3px solid #fab219; }
+.pu { display: flex; align-items: flex-start; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--grid); }
+.pu:last-child { border-bottom: 0; }
+.pu .when { font-size: 11px; color: var(--muted); min-width: 68px; flex: none; font-variant-numeric: tabular-nums; }
+.pu .body { flex: 1; min-width: 0; }
+.pu .t { font-size: 12.5px; font-weight: 600; }
+.pu .tasks { font-size: 11.5px; color: var(--ink-2); margin-top: 2px; }
+.pu .tasks span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- files, threads, open work ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+}
+.badge.open { background: rgba(250,178,25,.16); color: #b07600; }
+:root[data-theme="dark"] .badge.open { background: rgba(250,178,25,.18); color: #fab219; }
+.badge.thread { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
+.badge.codex { background: var(--wash); color: var(--ink-2); border: 1px solid var(--ring); }
+.badge.thread:hover { text-decoration: underline; }
+.filestrip { margin: 0 0 10px; }
+.filestrip h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.filestrip .frow {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  padding: 5px 9px; border-radius: 7px; border: 1px solid var(--ring); background: var(--surface-1);
+  margin-bottom: 4px; font-size: 12px;
+}
+.filestrip .frow:hover { border-color: var(--accent); }
+.filestrip .fp { font-family: ui-monospace, monospace; font-size: 11.5px; overflow: hidden;
+                 text-overflow: ellipsis; white-space: nowrap; flex: 1; direction: rtl; text-align: left; }
+.filestrip .fc { color: var(--muted); font-size: 11px; flex: none; font-variant-numeric: tabular-nums; }
+.tasklist { margin: 9px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.tasklist div { font-size: 12px; color: var(--ink-2); display: flex; gap: 7px; align-items: baseline; }
+.tasklist i { font-style: normal; font-size: 10px; color: var(--muted); text-transform: uppercase;
+              letter-spacing: .04em; flex: none; min-width: 62px; }
+.ctxwarn { margin-top: 9px; font-size: 11.5px; color: var(--ink-2);
+           background: var(--wash); border-radius: 8px; padding: 8px 10px; }
+.ctxwarn b { color: var(--ink); }
+
+/* ---------- transcript drawer ---------- */
+.scrim {
+  position: fixed; inset: 0; background: rgba(0,0,0,.42); z-index: 40;
+  opacity: 0; pointer-events: none; transition: opacity .16s;
+}
+.scrim.on { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+  width: var(--drawer, min(980px, 92vw));
+  background: var(--plane); border-left: 1px solid var(--grid);
+  transform: translateX(100%); transition: transform .2s cubic-bezier(.32,.72,0,1);
+  display: flex; flex-direction: column;
+}
+.drawer.on { transform: none; }
+/* drag the left edge of the chat to give a wide diff or a long command room */
+.dgrip {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 9px; margin-left: -4px;
+  z-index: 60; cursor: col-resize; background: none; border: 0; padding: 0;
+}
+.dgrip::after {
+  content: ''; position: absolute; inset: 0 auto 0 3px; width: 2px;
+  background: var(--accent); opacity: 0; transition: opacity .12s;
+}
+.dgrip:hover::after, .dgrip:focus-visible::after, .sizing .dgrip::after { opacity: 1; }
+.dgrip:focus { outline: none; }
+.dhead { padding: 13px 18px; border-bottom: 1px solid var(--grid); background: var(--surface-1); }
+.dhead .r1 { display: flex; align-items: flex-start; gap: 12px; }
+.dhead h3 { margin: 0; font-size: 16px; letter-spacing: -.01em; flex: 1; }
+.dhead .path { color: var(--muted); font-size: 11.5px; margin-top: 3px; word-break: break-all; }
+.dact { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.dact .hint { color: var(--muted); font-size: 11.5px; }
+.find { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+.find input {
+  padding: 5px 10px; border-radius: 7px; border: 1px solid var(--axis);
+  background: var(--plane); font-size: 12.5px; width: 200px; outline: none;
+}
+.find input:focus { border-color: var(--accent); }
+.turn.nomatch { display: none; }
+.dbody { overflow-y: auto; padding: 16px 18px 60px; flex: 1; }
+
+.turn { margin-bottom: 14px; }
+.turn.side { margin-left: 22px; border-left: 2px solid var(--grid); padding-left: 12px; }
+.who { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 650;
+       letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.who .m { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.bubble { background: var(--surface-1); border: 1px solid var(--ring); border-radius: 10px; padding: 11px 14px; }
+.turn.user .bubble { background: var(--accent-soft); border-color: transparent; }
+.turn.tool .bubble { background: var(--surface-1); border-color: var(--ring); }
+.bubble.bare { background: none; border: 0; padding: 0; }
+.bubble.bare .tc:first-child { margin-top: 0; }
+.turn.tool .who { opacity: .7; }
+.turn.flash .bubble { animation: flash 1.6s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: none; } }
+
+/* messages you pinned inside a chat */
+.markrow { display: flex; gap: 12px; align-items: baseline; justify-content: space-between;
+  padding: 8px 4px; border-top: 1px solid var(--grid); cursor: pointer; }
+.markrow:first-child { border-top: 0; }
+.markrow:hover { background: var(--wash); }
+.markrow .mtxt { font-size: 13px; overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.markrow .msrc { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+.markrow .msrc b { color: var(--ink-2); font-weight: 600; text-transform: uppercase;
+  font-size: 10px; letter-spacing: .04em; }
+.markrow .mwhen { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+.pinstrip { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; align-items: center; }
+.pinstrip .lead { color: var(--muted); font-size: 11px; font-weight: 650;
+  letter-spacing: .05em; text-transform: uppercase; }
+.pinchip {
+  display: inline-flex; align-items: baseline; gap: 6px; max-width: 320px;
+  padding: 3px 4px 3px 9px; border: 1px solid var(--axis); border-radius: 999px;
+  background: var(--surface-1); font-size: 11.5px; color: var(--ink-2); cursor: pointer;
+}
+.pinchip:hover { border-color: var(--accent); color: var(--accent); }
+.pinchip .w { color: var(--muted); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .04em; flex: none; }
+.pinchip .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pinchip .x { border: 0; background: none; color: var(--muted); padding: 0 5px;
+  font-size: 13px; line-height: 1; cursor: pointer; flex: none; }
+.pinchip .x:hover { color: var(--critical); }
+.turn.pinned > .bubble { box-shadow: -3px 0 0 0 var(--s4); }
+.turn.pinned .who::before { content: '📌'; font-size: 11px; }
+.acts button.pinned { border-color: var(--s4); color: var(--s4); }
+
+/* the commits a chat produced */
+.cmts { padding: 6px 2px 2px; display: flex; flex-direction: column; gap: 4px; }
+.cmt { display: grid; grid-template-columns: 74px 1fr; gap: 8px; align-items: baseline;
+       padding: 5px 7px; border-radius: 7px; cursor: pointer; }
+.cmt:hover { background: var(--wash); }
+.cmt code { font: 11.5px ui-monospace, SFMono-Regular, monospace; color: var(--accent); }
+.cmt .sub2 { font-size: 12.5px; }
+.cmt .ev { grid-column: 2; color: var(--muted); font-size: 11px; }
+
+/* a moment, not a message: a recap, a memory reset, a failed call */
+.turn.system { margin: 16px 0; }
+.moment {
+  display: flex; align-items: flex-start; gap: 9px; padding: 8px 11px; border-radius: 9px;
+  border: 1px dashed color-mix(in srgb, var(--k) 45%, var(--grid));
+  background: color-mix(in srgb, var(--k) 7%, transparent); font-size: 12.5px; color: var(--ink-2);
+}
+.moment .tag { font: 600 10px/1.7 system-ui, sans-serif; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--k); flex: none; }
+.moment.m-away { --k: var(--accent); }
+.moment.m-compact { --k: var(--s4); }
+.moment.m-error { --k: var(--critical); }
+
+/* recaps: one line each, the way a log reads */
+.recfilters { display: flex; gap: 6px; margin: 0 0 12px; flex-wrap: wrap; }
+.recfilters .btn.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.rec { display: grid; grid-template-columns: 76px 1fr; gap: 12px; padding: 9px 4px;
+       border-top: 1px solid var(--grid); cursor: pointer; }
+.rec:first-of-type { border-top: 0; }
+.rec:hover { background: var(--wash); }
+.rec .when { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.rec .body { font-size: 13px; line-height: 1.5; }
+.rec .src { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+.rec .src b { color: var(--ink-2); font-weight: 600; }
+.rec.k-compact .body { color: var(--ink-2); }
+.rec .tag { display: inline-block; font: 600 10px/1.6 system-ui, sans-serif; letter-spacing: .05em;
+  text-transform: uppercase; padding: 0 6px; border-radius: 5px; margin-right: 7px;
+  background: color-mix(in srgb, var(--k) 14%, transparent); color: var(--k); }
+.rec.k-away { --k: var(--accent); }
+.rec.k-compact { --k: var(--s4); }
+.rec.k-error { --k: var(--critical); }
+.ghead2 { font-size: 11.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted); padding: 14px 4px 5px; }
+
+.mtab .hrs { display: block; font-style: normal; color: var(--muted); font-size: 10px; }
+
+/* the board of what is running right now */
+.nowcard { margin-bottom: 16px; }
+.nowcard h2 .bell { margin-left: auto; }
+.nowrow {
+  display: grid; grid-template-columns: 96px 1fr auto; gap: 10px; align-items: baseline;
+  padding: 7px 4px; border-top: 1px solid var(--grid); cursor: pointer;
+}
+.nowrow:first-of-type { border-top: 0; }
+.nowrow:hover { background: var(--wash); }
+.nowrow .st { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.nowrow .st i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+.nowrow.s-working .st { color: var(--good); } .nowrow.s-working .st i { background: var(--good);
+  animation: pulse 1.6s ease-in-out infinite; }
+.nowrow.s-blocked .st { color: var(--s4); } .nowrow.s-blocked .st i { background: var(--s4); }
+.nowrow.s-waiting .st { color: var(--accent); } .nowrow.s-waiting .st i { background: var(--accent); }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+.nowrow .who2 { font-weight: 600; font-size: 13px; }
+.nowrow .meta2 { color: var(--muted); font-size: 11.5px; }
+.nowrow .said {
+  color: var(--ink-2); font-size: 12px; font-family: ui-monospace, SFMono-Regular, monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;
+}
+.nowrow .age { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.nowrow .go { visibility: hidden; }
+.nowrow:hover .go { visibility: visible; }
+.bell.on { border-color: var(--accent); color: var(--accent); }
+
+/* live tail: the pill in the header, the jump-to-latest button in the body */
+.btn.live { display: inline-flex; align-items: center; gap: 6px; }
+.btn.live .pip {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none;
+}
+.btn.live.on .pip { background: var(--good); }
+.btn.live.on.beat .pip { animation: beat 1.4s ease-out; }
+@keyframes beat {
+  from { box-shadow: 0 0 0 0 var(--good); }
+  to { box-shadow: 0 0 0 7px transparent; }
+}
+.jump {
+  position: absolute; left: 50%; bottom: 20px; z-index: 3;
+  transform: translateX(-50%) translateY(10px); opacity: 0; pointer-events: none;
+  transition: opacity .15s, transform .15s;
+  padding: 7px 15px; border-radius: 999px; border: 0;
+  background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 600;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3); cursor: pointer;
+}
+.jump.on { opacity: 1; pointer-events: auto; transform: translateX(-50%); }
+#reindex.stale { border-color: var(--accent); color: var(--accent); }
+.md { overflow-wrap: anywhere; }
+.md p { margin: 0 0 8px; } .md > :last-child { margin-bottom: 0; }
+.md h1, .md h2, .md h3, .md h4 { margin: 12px 0 6px; font-size: 14px; }
+.md ul, .md ol { margin: 0 0 8px; padding-left: 22px; }
+.md li { margin: 2px 0; }
+.md code { font: 12.5px ui-monospace, SFMono-Regular, monospace; background: var(--wash); padding: 1px 4px; border-radius: 4px; }
+.md pre {
+  background: var(--plane); border: 1px solid var(--grid); border-radius: 8px;
+  padding: 9px 11px; overflow-x: auto; margin: 0 0 8px;
+}
+.md pre code { background: none; padding: 0; font-size: 12px; line-height: 1.5; }
+.md blockquote { margin: 0 0 8px; padding-left: 10px; border-left: 2px solid var(--axis); color: var(--ink-2); }
+.md .tw { overflow-x: auto; margin: 0 0 9px; border: 1px solid var(--grid); border-radius: 8px; }
+.md table { border-collapse: collapse; font-size: 12.5px; width: 100%; }
+.md th, .md td { padding: 5px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+.md thead th {
+  background: var(--wash); font-weight: 600; white-space: nowrap;
+  position: sticky; top: 0; font-size: 11.5px;
+}
+.md tbody tr:last-child td { border-bottom: 0; }
+.md td { font-variant-numeric: tabular-nums; }
+
+/* one block per tool call: kind badge + one-line summary, expand for io */
+.tc { margin: 6px 0 0; border: 1px solid var(--grid); border-radius: 9px; overflow: hidden; background: var(--surface-1); }
+.tc > summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; font-size: 12px; color: var(--ink-2);
+}
+.tc > summary::-webkit-details-marker { display: none; }
+.tc > summary:hover { background: var(--wash); }
+.tc[open] > summary { border-bottom: 1px solid var(--grid); }
+.tc .kind {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  font: 600 10.5px/1 system-ui, sans-serif; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--k); padding: 3px 7px; border-radius: 5px; background: color-mix(in srgb, var(--k) 12%, transparent);
+}
+.tc .kind i { width: 6px; height: 6px; border-radius: 50%; background: var(--k); display: block; }
+.tc .nm { font: 600 11.5px ui-monospace, SFMono-Regular, monospace; color: var(--ink); flex: none; }
+.tc .br {
+  font: 11.5px ui-monospace, SFMono-Regular, monospace; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;
+}
+.tc .rs { flex: none; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tc .rs.err { color: var(--critical); font-weight: 600; }
+.tc .io { padding: 8px 10px; display: flex; flex-direction: column; gap: 7px; }
+.tc .io h4 {
+  margin: 0; font: 600 10px system-ui, sans-serif; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.tc pre {
+  margin: 3px 0 0; background: var(--plane); border: 1px solid var(--grid); border-radius: 7px;
+  padding: 8px 10px; overflow: auto; max-height: 340px; white-space: pre-wrap; word-break: break-word;
+  font: 11.5px/1.5 ui-monospace, SFMono-Regular, monospace; color: var(--ink-2);
+}
+.tc.k-bash    { --k: var(--s2); }
+.tc.k-read    { --k: var(--s1); }
+.tc.k-edit    { --k: var(--s3); }
+.tc.k-search  { --k: var(--s7); }
+.tc.k-agent   { --k: var(--s5); }
+.tc.k-mcp     { --k: var(--s4); }
+.tc.k-task    { --k: var(--s6); }
+.tc.k-skill   { --k: var(--s1); }
+.tc.k-tool    { --k: var(--muted); }
+.tc.failed { border-color: color-mix(in srgb, var(--critical) 45%, var(--grid)); }
+
+details.blk { margin: 6px 0 0; }
+details.blk > summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--ink-2); padding: 4px 7px; border-radius: 6px; background: var(--wash);
+}
+details.blk > summary::-webkit-details-marker { display: none; }
+details.blk > summary:hover { color: var(--ink); }
+details.blk > summary .nm { font-weight: 600; font-family: ui-monospace, monospace; font-size: 11.5px; }
+details.blk > summary .br { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+                            font-family: ui-monospace, monospace; font-size: 11px; }
+details.blk > summary .car { color: var(--muted); font-size: 10px; }
+details.blk pre {
+  margin: 5px 0 0; background: var(--plane); border: 1px solid var(--grid); border-radius: 7px;
+  padding: 8px 10px; overflow-x: auto; max-height: 380px; overflow-y: auto;
+  font: 11.5px/1.5 ui-monospace, SFMono-Regular, monospace; color: var(--ink-2); white-space: pre-wrap;
+}
+details.blk.err > summary { background: rgba(208,59,59,.12); color: var(--critical); }
+details.blk.think > summary { font-style: italic; }
+.trunc { color: var(--muted); font-size: 11px; padding: 4px 2px; }
+.cmdline {
+  display: inline-block; font: 12px ui-monospace, SFMono-Regular, monospace;
+  color: var(--accent); background: var(--wash); border-radius: 6px; padding: 2px 8px;
+}
+pre.out {
+  margin: 6px 0 0; background: var(--plane); border: 1px solid var(--grid); border-radius: 7px;
+  padding: 7px 9px; overflow-x: auto; max-height: 220px; overflow-y: auto;
+  font: 11.5px/1.5 ui-monospace, SFMono-Regular, monospace; color: var(--ink-2); white-space: pre-wrap;
+}
+.turn.user .bubble:has(> .cmdline:only-child) { background: none; padding: 2px 0; }
+details.sublist .subs { max-height: 180px; overflow-y: auto; padding: 6px 2px 2px; }
+.spin { color: var(--muted); padding: 30px; text-align: center; }
+.subs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+.subs button { padding: 3px 9px; border: 1px solid var(--axis); border-radius: 999px; font-size: 11.5px; color: var(--ink-2); }
+.subs button:hover { border-color: var(--accent); color: var(--accent); }
+
+
+/* ---------- copy affordances ---------- */
+.turn .acts { display: flex; gap: 3px; margin-left: auto; opacity: 0; transition: opacity .12s; }
+.turn:hover .acts, .turn:focus-within .acts, .turn.copied .acts { opacity: 1; }
+.acts button {
+  font: 500 10.5px/1 -apple-system, system-ui, sans-serif; padding: 3px 6px; border-radius: 6px;
+  border: 1px solid transparent; color: var(--muted); text-transform: none; letter-spacing: 0;
+}
+.acts button:hover { border-color: var(--accent); color: var(--accent); }
+.acts button.ok { border-color: var(--good); color: var(--good); }
+.turn.copied .bubble { animation: flash 1.2s ease-out; }
+.cw { position: relative; }
+.cw > .cbtn { position: absolute; top: 6px; right: 6px; opacity: 0; }
+.cw:hover > .cbtn, .cw > .cbtn:focus { opacity: 1; }
+.cbtn {
+  font: 500 10.5px/1 -apple-system, system-ui, sans-serif; padding: 3px 7px; border-radius: 6px;
+  border: 1px solid var(--axis); background: var(--surface-1); color: var(--muted);
+  transition: opacity .12s;
+}
+.cbtn:hover { border-color: var(--accent); color: var(--accent); }
+.cbtn.ok { border-color: var(--good); color: var(--good); }
+#selpop {
+  position: fixed; z-index: 90; display: none; gap: 2px; padding: 3px; align-items: center;
+  background: var(--surface-1); border: 1px solid var(--ring); border-radius: 9px;
+  box-shadow: 0 8px 26px rgba(0,0,0,.24);
+}
+#selpop.on { display: flex; }
+#selpop button { font-size: 11.5px; padding: 4px 8px; border-radius: 6px; color: var(--ink-2); white-space: nowrap; }
+#selpop button:hover { background: var(--wash); color: var(--accent); }
+#selpop .n { font-size: 10.5px; color: var(--muted); padding: 0 6px 0 3px; white-space: nowrap; }
+.menuwrap { position: relative; display: inline-flex; }
+.menu {
+  position: absolute; top: calc(100% + 5px); left: 0; z-index: 70; min-width: 232px;
+  background: var(--surface-1); border: 1px solid var(--ring); border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.24); padding: 4px; display: none;
+}
+.menu.on { display: block; }
+.menu button {
+  display: flex; width: 100%; gap: 10px; align-items: baseline; text-align: left;
+  padding: 6px 9px; border-radius: 7px; font-size: 12.5px; color: var(--ink);
+}
+.menu button:hover { background: var(--wash); }
+.menu button small { color: var(--muted); font-size: 10.5px; margin-left: auto; }
+.menu .note { padding: 6px 9px 4px; margin-top: 3px; border-top: 1px solid var(--ring);
+  font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  aside { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">cchat <small id="brandsub">Claude Code &amp; Codex history</small></div>
+    <nav class="tabs">
+      <button class="tab on" data-view="browse">Browse</button>
+      <button class="tab" data-view="dash">Dashboard <b id="pincount"></b></button>
+      <button class="tab" data-view="rec">Recaps <b id="reccount"></b></button>
+      <button class="tab" data-view="dep">Deprecated <b id="depcount"></b></button>
+    </nav>
+    <div class="search">
+      <span class="ico">⌕</span>
+      <input id="q" type="search" placeholder="Search every message across all chats…" autocomplete="off" spellcheck="false">
+      <kbd>/</kbd>
+    </div>
+    <button class="hbtn" id="reindex" title="Rescan ~/.claude/projects">↻ Refresh</button>
+    <button class="hbtn" id="theme" title="Toggle theme">◐</button>
+  </header>
+
+  <aside>
+    <div class="side-h"><span>Projects</span><span id="pcount"></span></div>
+    <div id="projects"></div>
+  </aside>
+
+  <button class="sidegrip" id="sidegrip" role="separator" aria-orientation="vertical"
+    tabindex="0" title="Drag to resize the sidebar — double-click to reset"
+    aria-label="Resize the sidebar"></button>
+
+  <main>
+    <section class="card nowcard" id="nowcard" hidden>
+      <h2>Running now <span class="sub" id="nowsub"></span>
+        <button class="btn bell" id="nowbell" type="button"
+          title="Tell me when a session needs me">🔔 Notify me</button>
+      </h2>
+      <div id="nowlist"></div>
+    </section>
+    <div id="browse">
+    <section class="card" id="overview" hidden></section>
+
+    <section class="filters" id="filters" aria-label="Filter chats">
+      <div class="fhead">
+        <h2>Filters</h2>
+        <span class="fsum" id="fsum"></span>
+        <button class="fclear" id="fclear" type="button" hidden>Clear all</button>
+      </div>
+      <div class="fgrid">
+        <span class="flabel" id="lsource">Agent</span>
+        <div class="seg" id="fsource" role="radiogroup" aria-labelledby="lsource"></div>
+
+        <span class="flabel" id="ltime">Time</span>
+        <div class="ftime">
+          <div class="seg" id="ftime" role="radiogroup" aria-labelledby="ltime"></div>
+          <div class="range" id="range" hidden>
+            <input type="date" id="from" aria-label="From date">
+            <span class="arrow">→</span>
+            <input type="date" id="to" aria-label="To date">
+            <span class="rangeinfo" id="rangeinfo"></span>
+          </div>
+        </div>
+
+        <span class="flabel" id="lmodel">Model</span>
+        <div class="fmodels" id="fmodel" aria-labelledby="lmodel"></div>
+      </div>
+    </section>
+
+    <div class="bar">
+      <strong id="listtitle">Recent chats</strong>
+      <span class="count" id="listcount"></span>
+      <span id="chips"></span>
+      <span class="grow"></span>
+      <span class="striplegend" id="striplegend">
+        <span><i data-v="1" style="height:5px"></i><i data-v="2" style="height:7px"></i><i data-v="3"></i>tool depth</span>
+        <span><i data-v="4"></i>error</span>
+        <span><i data-v="5"></i>interrupted</span>
+      </span>
+      <span class="count" id="keyhint">j/k move · ↵ open · r resume</span>
+      <label class="count" for="sort">Sort</label>
+      <select id="sort">
+        <option value="recent">Most recent</option>
+        <option value="oldest">Oldest first</option>
+        <option value="longest">Most messages</option>
+        <option value="prompts">Most prompts</option>
+        <option value="biggest">Largest on disk</option>
+      </select>
+    </div>
+    <div class="filestrip" id="filestrip" hidden></div>
+    <div class="list" id="list"></div>
+    <div id="pager"></div>
+    </div>
+
+    <div id="dashview" hidden>
+      <div class="scope" id="dscope"></div>
+      <div class="tiles" id="dtiles"></div>
+      <section class="card">
+        <h2>Pinned <span class="sub" id="pinsub"></span></h2>
+        <div id="pinned"></div>
+      </section>
+      <section class="card" id="markcard" hidden>
+        <h2>Pinned messages <span class="sub" id="marksub"></span></h2>
+        <div id="marklist"></div>
+      </section>
+      <div class="lenses">
+        <section class="card"><h2>Recently worked on</h2><div id="lensrecent"></div></section>
+        <section class="card"><h2>Most prompts</h2><div id="lensused"></div></section>
+        <section class="card"><h2>Most time spent</h2><div id="lenstime"></div></section>
+      </div>
+    </div>
+
+    <div id="recview" hidden>
+      <div class="scope">
+        <div class="snm">
+          <h1>Recaps</h1>
+          <div class="p" id="recsub">what your chats did while you were not watching</div>
+        </div>
+      </div>
+      <div class="recfilters" id="recchips"></div>
+      <section class="card"><div id="reclist"></div></section>
+      <div id="recmore"></div>
+      <p class="unote">Claude writes these lines into the transcript itself when you step
+        away, and marks where its memory was compacted. cchat only collects them.</p>
+    </div>
+
+    <div id="depview" hidden>
+      <div class="scope">
+        <div class="snm">
+          <h1>Deprecated</h1>
+          <div class="p" id="depsub">chats you have set aside — hidden everywhere else</div>
+        </div>
+      </div>
+      <section class="card"><div id="deplist"></div></section>
+      <p class="unote">Deleting moves the transcript (and its subagent logs) into
+        <code id="deptrash">~/.claude/cchat-trash/</code> — it is never unlinked, so a mistake
+        is one <code>mv</code> away from being undone. Claude Code will no longer be able to
+        <code>--resume</code> a deleted chat.</p>
+    </div>
+  </main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="drawer" id="drawer" role="dialog" aria-label="Transcript">
+  <button class="dgrip" id="dgrip" role="separator" aria-orientation="vertical" tabindex="0"
+    title="Drag to resize the chat — double-click to reset" aria-label="Resize the chat"></button>
+  <div class="dhead" id="dhead"></div>
+  <div class="dbody" id="dbody"></div>
+  <button class="jump" id="djump" type="button">↓ new messages</button>
+</div>
+<div id="tip" role="tooltip"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="selpop" role="toolbar" aria-label="Selection actions"></div>
+
+<script>
+const TOKEN = '__CCHAT_TOKEN__';
+const TERMINAL = '__CCHAT_TERMINAL__';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const state = { project: null, q: '', day: null, file: null, thread: null,
+                sort: 'recent', offset: 0, limit: 60, meta: null, act: null,
+                // chat filters; `time` is '' | 'today' | days back | 'custom' (from/to are yyyy-mm-dd)
+                source: '', models: [], time: '', from: '', to: '', since: null, until: null };
+const FILTER_KEY = 'cchat.filters';
+try {
+  const f = JSON.parse(localStorage.getItem(FILTER_KEY) || '{}');
+  if (['claude', 'codex'].includes(f.source)) state.source = f.source;
+  if (Array.isArray(f.models)) state.models = f.models.filter(m => typeof m === 'string');
+  if (typeof f.time === 'string') state.time = f.time;
+  if (typeof f.from === 'string') state.from = f.from;
+  if (typeof f.to === 'string') state.to = f.to;
+} catch (e) { /* no storage here - start with no filters */ }
+const PAGE = 60;
+
+let toastT;
+function toast(html, bad) {
+  const t = $('#toast');
+  t.innerHTML = html; t.classList.toggle('bad', !!bad); t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), bad ? 7000 : 3000);
+}
+async function copy(text, what) {
+  if (!text) { toast('Nothing to copy', true); return false; }
+  try { await navigator.clipboard.writeText(text); toast((what || 'Copied') + ' to clipboard'); return true; }
+  catch { /* no clipboard API — http:// on anything but localhost. try the old way */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:-9999px';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    if (ok) { toast((what || 'Copied') + ' to clipboard'); return true; }
+  } catch { /* fall through to the message below */ }
+  toast('Could not copy. Select the text and press ⌘C.', true);
+  return false;
+}
+/** Copy, and say so on the button itself — the toast is easy to miss mid-page. */
+async function copyOn(btn, text, what) {
+  const was = btn.textContent;
+  const ok = await copy(text, what);
+  btn.textContent = ok ? '✓ copied' : '✗ failed';
+  btn.classList.toggle('ok', ok);
+  setTimeout(() => { btn.textContent = was; btn.classList.remove('ok'); }, 1400);
+}
+/** Ask the server to open a terminal already running `claude --resume` for this chat. */
+async function resume(uid, cmd) {
+  toast('Opening ' + TERMINAL + '…');
+  let d;
+  try {
+    const r = await fetch('/api/resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CChat-Token': TOKEN },
+      body: JSON.stringify({ uid }),
+    });
+    d = await r.json();
+    // the token is minted per server start, so an old tab needs a reload
+    if (r.status === 403) d = { error: 'this page is older than the server — reload it (⌘R)' };
+  } catch (e) { d = { error: e.message }; }
+  if (d && d.ok) toast('Resumed in ' + d.terminal + ' — <code>' + esc(d.command || cmd || '') + '</code>');
+  else {
+    toast('Could not open a terminal: ' + esc((d && d.error) || 'unknown error') +
+          (cmd ? '<br>Copied the command instead.' : ''), true);
+    if (cmd) navigator.clipboard.writeText(cmd).catch(() => {});
+  }
+}
+
+/* ---------------- formatting ---------------- */
+const nf = new Intl.NumberFormat();
+function num(n) { return nf.format(n || 0); }
+function compact(n) {
+  n = n || 0;
+  if (n >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'k';
+  return String(n);
+}
+function bytes(n) {
+  n = n || 0;
+  if (n >= 1e9) return (n/1e9).toFixed(2) + ' GB';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + ' MB';
+  if (n >= 1e3) return Math.round(n/1e3) + ' kB';
+  return n + ' B';
+}
+function ago(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), s = (Date.now() - d) / 1000;
+  if (s < 90) return 'just now';
+  if (s < 3600) return Math.round(s/60) + 'm ago';
+  if (s < 86400) return Math.round(s/3600) + 'h ago';
+  if (s < 86400*7) return Math.round(s/86400) + 'd ago';
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year: sameYear ? undefined : 'numeric' });
+}
+function dur(a, b) {
+  if (!a || !b) return '';
+  const m = (new Date(b) - new Date(a)) / 60000;
+  if (m < 1) return '<1 min';
+  if (m < 90) return Math.round(m) + ' min';
+  const h = m / 60;
+  if (h < 40) return h.toFixed(1).replace(/\.0$/,'') + ' h';
+  return Math.round(h/24) + ' d';
+}
+function groupOf(iso) {
+  if (!iso) return 'Undated';
+  const d = new Date(iso), now = new Date();
+  const midnight = x => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+  const days = Math.round((midnight(now) - midnight(d)) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return 'Earlier this week';
+  if (days < 30) return 'Earlier this month';
+  return d.toLocaleDateString(undefined,
+    { month: 'long', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
+}
+function stamp(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString(undefined,
+    { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+const MODEL_SLOT = { opus: 'var(--s1)', sonnet: 'var(--s3)', haiku: 'var(--s2)', fable: 'var(--s5)', gpt: 'var(--s7)' };
+function modelColor(m) {
+  const short = shortModel(m);
+  const fam = Object.keys(MODEL_SLOT).find(k => short.includes(k));
+  return fam ? MODEL_SLOT[fam] : 'var(--axis)';   // unknown family -> neutral, never breaks
+}
+function modelTag(m) {
+  return `<span class="tag" title="${esc(m)}"><i style="background:${modelColor(m)}"></i>${esc(prettyModel(m))}</span>`;
+}
+
+/* ---------------- tiny markdown ---------------- */
+function md(src) {
+  const fences = [];
+  let t = String(src ?? '').replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    fences.push(`<pre><code>${esc(code.replace(/\n$/, ''))}</code></pre>`);
+    return `@@F${fences.length - 1}@@`;
+  });
+  t = esc(t);
+  const lines = t.split('\n');
+  let out = '', list = null, para = [];
+  const flushP = () => { if (para.length) { out += `<p>${inline(para.join('<br>'))}</p>`; para = []; } };
+  const flushL = () => { if (list) { out += `</${list}>`; list = null; } };
+  const isRow = l => /^\s*\|.*\|\s*$/.test(l);
+  const isRule = l => /^\s*\|[\s:|-]+\|\s*$/.test(l) && l.includes('-');
+
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i].replace(/\s+$/, '');
+    if (/^@@F\d+@@$/.test(ln.trim())) { flushP(); flushL(); out += ln.trim(); continue; }
+    if (!ln.trim()) { flushP(); flushL(); continue; }
+
+    // table: a header row followed by a |---|---| rule
+    if (isRow(ln) && isRule(lines[i + 1] || '')) {
+      flushP(); flushL();
+      const cells = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => inline(c.trim()));
+      const align = (lines[i + 1] || '').trim().replace(/^\||\|$/g, '').split('|')
+        .map(c => c.trim().startsWith(':') && c.trim().endsWith(':') ? 'center'
+                : c.trim().endsWith(':') ? 'right' : 'left');
+      const head = cells(ln);
+      const body = [];
+      i += 2;
+      while (i < lines.length && isRow(lines[i])) { body.push(cells(lines[i])); i++; }
+      i--;
+      const th = head.map((c, n) => `<th style="text-align:${align[n] || 'left'}">${c}</th>`).join('');
+      const tr = body.map(r =>
+        `<tr>${r.map((c, n) => `<td style="text-align:${align[n] || 'left'}">${c}</td>`).join('')}</tr>`).join('');
+      out += `<div class="tw"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+      continue;
+    }
+
+    let m;
+    if ((m = ln.match(/^(#{1,6})\s+(.*)$/))) {
+      flushP(); flushL();
+      const lv = Math.min(m[1].length + 1, 4);
+      out += `<h${lv}>${inline(m[2])}</h${lv}>`; continue;
+    }
+    if ((m = ln.match(/^\s*[-*+]\s+(.*)$/))) {
+      flushP(); if (list !== 'ul') { flushL(); out += '<ul>'; list = 'ul'; }
+      out += `<li>${inline(m[1])}</li>`; continue;
+    }
+    if ((m = ln.match(/^\s*\d+[.)]\s+(.*)$/))) {
+      flushP(); if (list !== 'ol') { flushL(); out += '<ol>'; list = 'ol'; }
+      out += `<li>${inline(m[1])}</li>`; continue;
+    }
+    if ((m = ln.match(/^&gt;\s?(.*)$/))) { flushP(); flushL(); out += `<blockquote>${inline(m[1])}</blockquote>`; continue; }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(ln)) { flushP(); flushL(); out += '<hr>'; continue; }
+    flushL(); para.push(ln);
+  }
+  flushP(); flushL();
+  return out.replace(/@@F(\d+)@@/g, (_, i) => fences[+i] ?? '');
+}
+function inline(s) {
+  return s
+    .replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|\s)\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+}
+
+/* ---------------- data ---------------- */
+async function get(path, params) {
+  const u = new URL(path, location.origin);
+  for (const [k, v] of Object.entries(params || {})) if (v != null && v !== '') u.searchParams.set(k, v);
+  const r = await fetch(u);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function boot() {
+  state.meta = await get('/api/meta');
+  const cx = state.meta.codex;
+  if (cx && cx.problem) toast('Codex chats are not shown: ' + esc(cx.problem), true);
+  renderBrand(); renderProjects();
+  renderOverview();
+  get('/api/dashboard').then(d => { $('#pincount').textContent = d.pinned_total || ''; })
+    .catch(() => {});
+  get('/api/deprecated').then(d => { $('#depcount').textContent = d.count || ''; })
+    .catch(() => {});
+  get('/api/recaps', { limit: 1 }).then(d => {
+    $('#reccount').textContent = (d.counts || {}).away || '';
+  }).catch(() => {});
+  await loadList(true);
+  loadNow().catch(() => {});
+}
+
+/* ---------------- filters ---------------- */
+const AGENTS_UI = {
+  claude: { name: 'Claude Code', color: 'var(--s2)' },
+  codex:  { name: 'Codex (GPT)', color: 'var(--s3)' },
+};
+const TIMES = [['', 'Any time'], ['today', 'Today'], ['7', '7 days'], ['30', '30 days'],
+               ['90', '90 days'], ['365', '1 year'], ['custom', 'Custom']];
+const MODELS_SHOWN = 6;          // per agent, before "+N more"
+let facets = null, showAllModels = false;
+
+/** "claude-opus-5-5" -> "Opus 5.5", "gpt-5.3-codex" -> "GPT-5.3 Codex". The raw id stays in the tooltip. */
+function prettyModel(m) {
+  const id = String(m).replace(/-\d{8}$/, '');
+  const cap = w => w.charAt(0).toUpperCase() + w.slice(1);
+  if (id.startsWith('claude-')) {
+    const bits = id.slice(7).split('-');
+    const words = bits.filter(b => !/^\d+$/.test(b)).map(cap);
+    const ver = bits.filter(b => /^\d+$/.test(b)).join('.');
+    return [words.join(' '), ver].filter(Boolean).join(' ') || id;
+  }
+  const g = id.match(/^gpt-([\d.]+[a-z]?)(?:-(.+))?$/i);
+  if (g) return 'GPT-' + g[1] + (g[2] ? ' ' + g[2].split('-').map(cap).join(' ') : '');
+  return id;
+}
+function agentOfModel(m) {
+  const src = (state.meta.model_sources || {})[m] || [];
+  return src.length === 1 ? src[0] : /^claude-/.test(m) ? 'claude' : 'codex';
+}
+const isoDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const shortDate = (iso, year) => new Date(iso + 'T12:00:00').toLocaleDateString(undefined,
+  { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}) });
+
+/** Turn the Time choice into an ISO window the server compares against. */
+function readWindow() {
+  state.since = state.until = null;
+  if (state.time === 'custom') {
+    if (state.from) state.since = new Date(state.from + 'T00:00:00').toISOString();
+    if (state.to) state.until = new Date(state.to + 'T23:59:59.999').toISOString();
+  } else if (state.time === 'today') {
+    const d = new Date(); d.setHours(0, 0, 0, 0); state.since = d.toISOString();
+  } else if (state.time) {
+    state.since = new Date(Date.now() - +state.time * 86400000).toISOString();
+  }
+}
+function saveFilters() {
+  try {
+    localStorage.setItem(FILTER_KEY, JSON.stringify({ source: state.source, models: state.models,
+      time: state.time, from: state.from, to: state.to }));
+  } catch (e) { /* storage blocked - the filters still work for this visit */ }
+}
+function filtersOn() { return !!(state.source || state.models.length || state.time); }
+function applyFilters() { saveFilters(); state.offset = 0; loadList(true); }
+
+function renderFilters() {
+  const f = facets || { source: {}, time: {}, models: [] };
+  const cnt = n => n == null ? '' : `<span class="n">${num(n)}</span>`;
+
+  // Agent
+  $('#fsource').innerHTML = [['', 'All agents'], ['claude'], ['codex']].map(([k, label]) => {
+    const a = AGENTS_UI[k], n = f.source[k] ?? 0, on = state.source === k;
+    return `<button type="button" role="radio" aria-checked="${on}" class="${on ? 'on' : ''}" data-v="${k}"
+      ${!on && k && !n ? 'disabled' : ''}>${a ? `<i class="dot" style="--c:${a.color}"></i>${a.name}` : label}${cnt(n)}</button>`;
+  }).join('');
+
+  // Time
+  $('#ftime').innerHTML = TIMES.map(([k, label]) => {
+    const on = state.time === k, n = k === 'custom' ? null : f.time[k];
+    return `<button type="button" role="radio" aria-checked="${on}" class="${on ? 'on' : ''}" data-v="${k}"
+      ${!on && n === 0 ? 'disabled' : ''}>${label}${cnt(n)}</button>`;
+  }).join('');
+  $('#range').hidden = state.time !== 'custom';
+  const today = isoDay(new Date()), first = state.meta.totals.first;
+  for (const id of ['from', 'to']) {
+    const el = $('#' + id);
+    el.max = today;
+    if (first) el.min = first.slice(0, 10);
+    if (el.value !== state[id]) el.value = state[id];
+  }
+  let info = '';
+  if (state.from && state.to) {
+    const days = Math.round((new Date(state.to + 'T12:00:00') - new Date(state.from + 'T12:00:00')) / 86400000) + 1;
+    info = `${days} day${days === 1 ? '' : 's'}`;
+  } else if (state.from) info = 'from ' + shortDate(state.from, true) + ' on';
+  else if (state.to) info = 'up to ' + shortDate(state.to, true);
+  else info = 'Pick a start date, an end date, or both';
+  $('#rangeinfo').textContent = info;
+
+  // Model: every model the facets count, plus any you picked that the other filters now rule out
+  const counts = new Map(f.models.map(m => [m.model, m.n]));
+  for (const m of state.models) if (!counts.has(m)) counts.set(m, 0);
+  const groups = { claude: [], codex: [] };
+  for (const [m, n] of counts) groups[agentOfModel(m)]?.push({ m, n });
+  const html = Object.entries(groups).filter(([, list]) => list.length).map(([agent, list]) => {
+    list.sort((a, b) => b.n - a.n || a.m.localeCompare(b.m));
+    const shown = showAllModels ? list : list.filter((x, i) => i < MODELS_SHOWN || state.models.includes(x.m));
+    const hidden = list.length - shown.length, a = AGENTS_UI[agent];
+    return `<div class="mgroup"><span class="mgname"><i class="dot" style="--c:${a.color}"></i>${a.name}</span>` +
+      shown.map(({ m, n }) => {
+        const on = state.models.includes(m);
+        return `<button type="button" class="mchip${on ? ' on' : ''}" data-m="${esc(m)}" aria-pressed="${on}"
+          title="${esc(m)}" ${!on && !n ? 'disabled' : ''}>${esc(prettyModel(m))}${cnt(n)}</button>`;
+      }).join('') +
+      (hidden ? `<button type="button" class="mmore" data-more="1">+${hidden} more</button>` : '') + '</div>';
+  }).join('');
+  const anyHidden = showAllModels && [...counts.keys()].length > MODELS_SHOWN;
+  $('#fmodel').innerHTML = (html || '<div class="fnone">No models in this view.</div>') +
+    (anyHidden ? '<div><button type="button" class="mmore" data-more="0">Show fewer</button></div>' : '');
+
+  // Summary line and Clear all
+  const bits = [];
+  if (state.source) bits.push(AGENTS_UI[state.source].name);
+  if (state.models.length) bits.push(state.models.length <= 2 ? state.models.map(prettyModel).join(' + ')
+                                                             : `${state.models.length} models`);
+  if (state.time === 'custom') {
+    const y = (state.from || state.to || '').slice(0, 4) !== String(new Date().getFullYear());
+    if (state.from || state.to) bits.push((state.from ? shortDate(state.from, y) : '…') + ' – ' + (state.to ? shortDate(state.to, y) : 'now'));
+  } else if (state.time) bits.push(TIMES.find(t => t[0] === state.time)[1].replace(/^(\d)/, 'last $1'));
+  $('#fsum').innerHTML = bits.length ? bits.map(b => `<b>${esc(b)}</b>`).join(' · ') : 'Showing every chat';
+  $('#fclear').hidden = !filtersOn();
+}
+
+$('#fsource').onclick = e => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  state.source = b.dataset.v;
+  if (state.source) state.models = state.models.filter(m => agentOfModel(m) === state.source);
+  applyFilters();
+};
+$('#ftime').onclick = e => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  state.time = b.dataset.v;
+  if (state.time === 'custom' && !state.from && !state.to) {
+    const d = new Date(); d.setDate(d.getDate() - 6);
+    state.from = isoDay(d); state.to = isoDay(new Date());
+  }
+  applyFilters();
+};
+$('#from').onchange = $('#to').onchange = () => {
+  let f = $('#from').value, t = $('#to').value;
+  if (f && t && f > t) [f, t] = [t, f];            // a range typed backwards still means something
+  state.from = f; state.to = t; applyFilters();
+};
+$('#fmodel').onclick = e => {
+  const more = e.target.closest('[data-more]');
+  if (more) { showAllModels = more.dataset.more === '1'; renderFilters(); return; }
+  const b = e.target.closest('.mchip'); if (!b || b.disabled) return;
+  const m = b.dataset.m;
+  state.models = state.models.includes(m) ? state.models.filter(x => x !== m) : [...state.models, m];
+  applyFilters();
+};
+$('#fclear').onclick = () => {
+  Object.assign(state, { source: '', models: [], time: '', from: '', to: '' });
+  applyFilters();
+};
+
+function renderBrand() {
+  const t = state.meta.totals, ps = state.meta.projects;
+  $('#brandsub').textContent = `${num(t.sessions)} chats · ${ps.length} projects`;
+}
+
+function renderProjects() {
+  const ps = state.meta.projects;
+  $('#pcount').textContent = ps.length;
+  const all = `<button class="proj ${state.project ? '' : 'on'}" data-p="">
+      <div class="n"><span class="nm">All projects</span><span class="ct">${num(state.meta.totals.sessions)}</span></div>
+      <div class="sub">everything indexed</div></button>`;
+  $('#projects').innerHTML = all + ps.map(p => `
+    <button class="proj ${state.project === p.key ? 'on' : ''}" data-p="${esc(p.key)}" title="${esc(p.label)}">
+      <div class="n"><span class="nm">${esc(p.name)}</span><span class="ct">${p.n_sessions}</span></div>
+      <div class="sub">${ago(p.last)} · ${bytes(p.bytes)}</div>
+    </button>`).join('');
+  $('#projects').querySelectorAll('.proj').forEach(b => b.onclick = () => {
+    state.project = b.dataset.p || null; state.day = null; state.file = null;
+    state.thread = null; state.offset = 0;
+    renderProjects();
+    if (view === 'dash') { loadDash(); return; }   // dashboard is scoped by the same state
+    renderOverview(); loadList(true);
+  });
+}
+
+/* ---------------- how each model works ---------------- */
+/** label is what you read; fill (0-100) is how far the rail is drawn. */
+function meter(label, fill) {
+  if (label == null) return '<div class="meter none"><b>—</b><span class="rail"></span></div>';
+  const w = Math.max(0, Math.min(100, fill));
+  return `<div class="meter"><b>${label}</b>
+    <span class="rail"><i style="width:${w}%"></i></span></div>`;
+}
+const pct = v => v == null ? null : v + '%';
+/** Seconds, said the way a person would say them. */
+function mins(sec) {
+  sec = Math.round(sec || 0);
+  if (!sec) return '—';
+  if (sec < 60) return sec + 's';
+  if (sec < 3600) return Math.round(sec / 60) + 'm' + (sec % 60 >= 30 ? '30s' : '');
+  return (sec / 3600).toFixed(1) + 'h';
+}
+/* ---------------- pins + dashboard ---------------- */
+function hours(sec) {
+  if (!sec) return '—';
+  const h = sec / 3600;
+  return h >= 1 ? h.toFixed(1) + ' h' : Math.round(sec / 60) + ' min';
+}
+
+async function togglePin(uid, btn) {
+  const on = !(btn && btn.classList.contains('on'));
+  let d;
+  try {
+    const r = await fetch('/api/pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CChat-Token': TOKEN },
+      body: JSON.stringify({ uid, on }),
+    });
+    if (r.status === 403) { toast('Reload the page (⌘R) — it is older than the server', true); return; }
+    d = await r.json();
+  } catch (e) { toast('Could not save the pin: ' + esc(e.message), true); return; }
+  if (d.error) { toast(esc(d.error), true); return; }
+  if (btn) {
+    btn.classList.toggle('on', d.pinned);
+    btn.textContent = d.pinned ? '★' : '☆';
+    btn.setAttribute('aria-pressed', String(d.pinned));
+    btn.title = d.pinned ? 'Unpin' : 'Pin to dashboard';
+  }
+  $('#pincount').textContent = d.count || '';
+  toast(d.pinned ? 'Pinned to the dashboard' : 'Unpinned');
+  if (view === 'dash') loadDash();
+}
+
+async function post(path, body) {
+  const r = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CChat-Token': TOKEN },
+    body: JSON.stringify(body),
+  });
+  if (r.status === 403) { toast('Reload the page (⌘R) — it is older than the server', true); return null; }
+  const d = await r.json();
+  if (d.error) { toast(esc(d.error), true); return null; }
+  return d;
+}
+
+/** Set aside (or restore) a chat. Deprecated chats vanish from every other view. */
+/** Turn a title into an input in place. Enter saves, Escape restores, blank reverts
+ *  to whatever the transcript called it. */
+function editTitle(el, uid, onDone) {
+  if (!el || el.dataset.editing) return;
+  const original = el.textContent;
+  el.dataset.editing = '1';
+  const input = document.createElement('input');
+  input.className = 'titleedit';
+  input.value = original;
+  input.setAttribute('aria-label', 'Chat title');
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let settled = false;
+  const finish = async (save) => {
+    if (settled) return;
+    settled = true;
+    const next = input.value.trim();
+    let shown = original;
+    if (save && next !== original) {
+      const d = await post('/api/rename', { uid, title: next });
+      if (d) {
+        shown = d.title;
+        toast(d.renamed ? 'Renamed' : 'Reverted to the transcript title');
+      }
+    }
+    const span = document.createElement('span');
+    span.className = el.className.replace(/\brenamed\b/, '').trim();
+    span.textContent = shown;
+    input.replaceWith(span);
+    delete span.dataset.editing;
+    if (onDone) onDone(shown);
+    else if (save) loadList(true);
+  };
+  input.onkeydown = e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  };
+  input.onblur = () => finish(true);
+  input.onclick = e => e.stopPropagation();
+}
+
+async function setDeprecated(uid, on, rowEl) {
+  const d = await post('/api/deprecate', { uid, on });
+  if (!d) return;
+  $('#depcount').textContent = d.count || '';
+  toast(on ? 'Deprecated — hidden from the other views' : 'Restored');
+  if (rowEl && on) { rowEl.style.opacity = '.35'; setTimeout(() => rowEl.remove(), 250); }
+  if (view === 'dep') loadDep();
+  if (view === 'dash') loadDash();
+}
+
+/** Two clicks, and the file is moved to the trash rather than unlinked. */
+async function deleteChat(uid, btn) {
+  if (!btn.classList.contains('arm')) {
+    btn.classList.add('arm'); btn.textContent = 'Confirm';
+    setTimeout(() => { btn.classList.remove('arm'); btn.textContent = 'Delete'; }, 4000);
+    return;
+  }
+  const d = await post('/api/delete', { uid, confirm: true });
+  if (!d) return;
+  toast(`Moved to ${esc(d.trash)} — restore with <code>mv</code> if needed`);
+  loadDep();
+}
+
+async function loadDep() {
+  const d = await get('/api/deprecated');
+  $('#depcount').textContent = d.count || '';
+  $('#depsub').textContent = d.count
+    ? `${d.count} chat${d.count === 1 ? '' : 's'} across ${d.groups.length} project${
+        d.groups.length === 1 ? '' : 's'} · ${bytes(d.bytes)} — hidden everywhere else`
+    : 'nothing deprecated — use ⊘ on any chat to set it aside';
+  $('#deplist').innerHTML = d.count ? `<div class="pingrid">${d.groups.map(g => `
+    <div class="pgroup">
+      <h4><span title="${esc(g.label)}">${esc(g.name)}</span><em>${g.chats.length}</em></h4>
+      ${g.chats.map(c => `<div class="pitem" data-uid="${esc(c.uid)}">
+        <div class="t" title="${esc(c.title)}">${esc(c.title)}</div>
+        <div class="b">
+          <button class="btn" data-restore="${esc(c.uid)}" title="Restore to the other views">↩</button>
+          <button class="btn del" data-del="${esc(c.uid)}">Delete</button>
+        </div>
+        <div class="m"><span>${esc(ago(c.ended))}</span><em>${bytes((c.bytes||0)+(c.sub_bytes||0))}</em>
+          ${stripHtml(c.strip)}</div>
+      </div>`).join('')}
+    </div>`).join('')}</div>`
+    : `<div class="pins-empty">Nothing here. Hit ⊘ on a chat to set it aside — it disappears
+        from the list, the dashboard and search, and shows up in this tab instead.</div>`;
+
+  $('#deplist').querySelectorAll('[data-restore]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); setDeprecated(b.dataset.restore, false);
+  });
+  $('#deplist').querySelectorAll('[data-del]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); deleteChat(b.dataset.del, b);
+  });
+  $('#deplist').querySelectorAll('.pitem').forEach(el => el.onclick = e => {
+    if (!e.target.closest('button')) openChat(el.dataset.uid);
+  });
+}
+
+function dashRow(s, kind, value) {
+  const meta = [ago(s.ended)];
+  if (s.open_tasks && s.open_tasks.length) meta.push(`${s.open_tasks.length} open`);
+  return `<div class="${kind}" data-uid="${esc(s.uid)}">
+    <div class="t">${esc(s.title)}</div>
+    <div class="acts">
+      ${value !== undefined ? `<span class="v">${value}</span>` : ''}
+      <button class="btn pin${s.pinned ? ' on' : ''}" data-pin="${esc(s.uid)}"
+        aria-pressed="${!!s.pinned}" title="${s.pinned ? 'Unpin' : 'Pin to dashboard'}"
+        >${s.pinned ? '★' : '☆'}</button>
+      <button class="btn ren" data-ren="${esc(s.uid)}" title="Rename this chat">✎</button>
+      <button class="btn dep" data-dep="${esc(s.uid)}"
+        title="Deprecate — hide this chat from every other view">⊘</button>
+      <button class="btn resume" data-cmd="${esc(s.resume || '')}" title="Resume in terminal">▶</button>
+    </div>
+    <div class="m">${state.project ? '' : `<button class="pchip" data-proj="${esc(s.project)}"
+        title="Scope the dashboard to ${esc(s.label || s.name)}">${esc(s.name)}</button>`}
+      ${meta.map(x => `<span>${esc(x)}</span>`).join('<span class="dot">·</span>')}</div>
+    <div class="s">${stripHtml(s.strip)}</div>
+  </div>`;
+}
+
+/** Pinned chats, grouped under their project name and laid out across the width. */
+function pinnedGrid(pinned) {
+  const groups = new Map();
+  for (const s of pinned) {
+    if (!groups.has(s.project)) groups.set(s.project, { name: s.name, label: s.label, items: [] });
+    groups.get(s.project).items.push(s);
+  }
+  const order = [...groups.entries()].sort((a, b) => b[1].items.length - a[1].items.length);
+  return `<div class="pingrid">${order.map(([proj, g]) => `
+    <div class="pgroup">
+      <h4><button data-proj="${esc(proj)}" title="${esc(g.label || g.name)}">${esc(g.name)}</button>
+        <em>${g.items.length}</em></h4>
+      ${g.items.map(s => `<div class="pitem" data-uid="${esc(s.uid)}">
+        <div class="t" title="${esc(s.title)}">${esc(s.title)}</div>
+        <div class="b">
+          <button class="btn pin on" data-pin="${esc(s.uid)}" title="Unpin">★</button>
+          <button class="btn dep" data-dep="${esc(s.uid)}"
+            title="Deprecate — hide this chat from every other view">⊘</button>
+          <button class="btn resume" data-cmd="${esc(s.resume || '')}" title="Resume in terminal">▶</button>
+        </div>
+        <div class="m"><span>${esc(ago(s.ended))}</span>${stripHtml(s.strip)}</div>
+      </div>`).join('')}
+    </div>`).join('')}</div>`;
+}
+
+async function loadDash() {
+  if (view === 'dash') {
+    const want = '#dash' + (state.project ? '&p=' + encodeURIComponent(state.project) : '');
+    if (location.hash !== want) history.replaceState(null, '', want);
+  }
+  const d = await get('/api/dashboard', { project: state.project });
+  $('#pincount').textContent = d.pinned_total || '';
+  loadMarks().catch(() => {});
+
+  const t = d.totals;
+  $('#dscope').innerHTML = `
+    <div class="snm">
+      <h1>${esc(d.name)}</h1>
+      ${d.label ? `<div class="p">${esc(d.label)}</div>`
+                : `<div class="p">every project indexed</div>`}
+    </div>
+    <div class="grow"></div>
+    <div class="acts">
+      ${state.project ? `<button class="btn allbtn" id="scopeall">← All projects</button>` : ''}
+      <button class="btn allbtn" id="scopebrowse">Browse these chats →</button>
+    </div>`;
+  const sa = $('#scopeall');
+  if (sa) sa.onclick = () => { state.project = null; renderProjects(); loadDash(); };
+  $('#scopebrowse').onclick = () => setView('browse');
+  $('#dtiles').innerHTML = [
+    ['Pinned here', num(d.pinned.length)],
+    ['Chats', num(t.chats)],
+    ['Your prompts', num(t.prompts)],
+    ['Time worked', hours(t.active)],
+    ['API list value', usd(d.cost)],
+    ...(t.errors ? [['Tool errors', num(t.errors)]] : []),
+  ].map(([k, v]) => `<div class="tile"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
+
+  $('#pinsub').textContent = d.pinned.length
+    ? (() => { const n = new Set(d.pinned.map(p => p.project)).size;
+        return `${d.pinned.length} chat${d.pinned.length === 1 ? '' : 's'} across ${n} project${n === 1 ? '' : 's'}`; })()
+    : (state.project && d.pinned_total ? `none in this project — ${d.pinned_total} pinned elsewhere` : '');
+  $('#pinned').innerHTML = d.pinned.length ? pinnedGrid(d.pinned)
+    : `<div class="pins-empty">Nothing pinned${state.project ? ' in this project' : ''} yet — hit ☆ on any chat to keep it here.</div>`;
+
+  $('#lensrecent').innerHTML = d.recent.map(s => dashRow(s, 'lensrow', ago(s.ended))).join('');
+  $('#lensused').innerHTML = d.used.map(s => dashRow(s, 'lensrow', num(s.n_user))).join('');
+  $('#lenstime').innerHTML = d.time.map(s => dashRow(s, 'lensrow', hours(s.active_secs))).join('');
+
+  $('#pinned').querySelectorAll('.pgroup h4 [data-proj]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); state.project = b.dataset.proj; renderProjects(); loadDash();
+  });
+  $('#dashview').querySelectorAll('[data-uid]').forEach(el => el.onclick = e => {
+    const pc = e.target.closest('[data-proj]');
+    if (pc) { e.stopPropagation(); state.project = pc.dataset.proj; renderProjects(); loadDash(); return; }
+    const pin = e.target.closest('[data-pin]');
+    if (pin) { e.stopPropagation(); togglePin(pin.dataset.pin, pin); return; }
+    const dep = e.target.closest('[data-dep]');
+    if (dep) { e.stopPropagation(); setDeprecated(dep.dataset.dep, true); return; }
+    const ren = e.target.closest('[data-ren]');
+    if (ren) { e.stopPropagation();
+      editTitle(el.querySelector('.t'), el.dataset.uid, () => loadDash()); return; }
+    const res = e.target.closest('.resume');
+    if (res) { e.stopPropagation(); resume(el.dataset.uid, res.dataset.cmd); return; }
+    openChat(el.dataset.uid);
+  });
+}
+
+let view = 'browse';
+function setView(v, silent) {
+  view = v;
+  $('#depview').hidden = v !== 'dep';
+  $('#recview').hidden = v !== 'rec';
+  if (!silent) {
+    const want = v === 'dash'
+      ? '#dash' + (state.project ? '&p=' + encodeURIComponent(state.project) : '')
+      : v === 'dep' ? '#dep' : v === 'rec' ? '#rec' : '';
+    if (location.hash !== want) history.replaceState(null, '', want || location.pathname);
+  }
+  $('#browse').hidden = v !== 'browse';
+  $('#dashview').hidden = v !== 'dash';
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.view === v));
+  if (v === 'dash') loadDash();
+  else if (v === 'rec') loadRecaps(true);
+  else if (v === 'dep') loadDep();
+  else { renderOverview(); loadList(true); }
+}
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => setView(t.dataset.view));
+
+/* ---------------- usage by model ---------------- */
+// One stacked bar per model. Segments are the four things you actually pay for,
+// in fixed slot order so a colour always means the same cost component.
+const COST_PARTS = [
+  { key: 'fresh',  label: 'input',       color: 'var(--s1)' },
+  { key: 'write',  label: 'cache write', color: 'var(--s2)' },
+  { key: 'read',   label: 'cache read',  color: 'var(--s3)' },
+  { key: 'output', label: 'output',      color: 'var(--s4)' },
+];
+function shortModel(m) { return String(m).replace(/^claude-/, '').replace(/-\d{8}$/, ''); }
+function shortTool(t) {
+  const b = String(t).split('__');
+  return b.length > 2 ? b.slice(1).join('·') : String(t);
+}
+
+function usd(n) {
+  if (n == null) return '—';
+  if (n >= 1000) return '$' + Math.round(n).toLocaleString();
+  if (n >= 1) return '$' + n.toFixed(2);
+  return '$' + n.toFixed(3);
+}
+
+function showTip(e, html) {
+  const t = $('#tip'); t.innerHTML = html; t.style.opacity = 1;
+  const r = e.target.getBoundingClientRect(), b = t.getBoundingClientRect();
+  t.style.left = Math.max(8, Math.min(innerWidth - b.width - 8, r.left + r.width/2 - b.width/2)) + 'px';
+  t.style.top = (r.top - b.height - 8 < 8 ? r.bottom + 8 : r.top - b.height - 8) + 'px';
+}
+function hideTip() { $('#tip').style.opacity = 0; }
+
+/* ---------------- chat list ---------------- */
+let listSeq = 0;
+async function loadList(reset) {
+  const mine = ++listSeq;
+  readWindow();              // "last 7 days" slides forward with the clock
+  if (reset) {
+    state.offset = 0; lastGroup = null; sel = -1;
+    $('#list').innerHTML = Array.from({ length: 5 }, () => '<div class="sk"></div>').join('');
+    renderFilters();         // the choice shows at once; counts follow
+  }
+  const filters = {
+    project: state.project, q: state.q, day: state.day,
+    file: state.file, thread: state.thread, source: state.source,
+    model: state.models.join(','), since: state.since, until: state.until,
+  };
+  const [r, files, fc] = await Promise.all([
+    get('/api/sessions', { ...filters, sort: state.sort, limit: PAGE, offset: state.offset }),
+    // a query that looks like a path or a filename should surface files too
+    (reset && state.q && !state.file) ? get('/api/files', { q: state.q, project: state.project })
+                                      : Promise.resolve({ files: [] }),
+    reset ? get('/api/facets', filters).catch(() => null) : Promise.resolve(null),
+  ]);
+  if (mine !== listSeq) return;
+  if (fc) { facets = fc; renderFilters(); }
+  renderFiles(files.files);
+  renderList(r, reset);
+}
+let lastGroup = null, sel = -1;
+function renderList(r, reset) {
+  const box = $('#list');
+  if (reset) { box.innerHTML = ''; lastGroup = null; }
+  $('#listtitle').textContent = state.q ? 'Search results' :
+    state.day ? 'Chats active that day' :
+    ({ recent:'Recent chats', oldest:'Oldest chats', longest:'Longest chats',
+       prompts:'Most prompts', biggest:'Largest chats' })[state.sort];
+  $('#listcount').textContent = r.total ? `${num(r.total)} chat${r.total===1?'':'s'}` : '';
+  renderChips();
+  if (!r.sessions.length && reset) {
+    box.innerHTML = `<div class="empty">${state.q ? `Nothing matches <b>${esc(state.q)}</b>` :
+      filtersOn() ? 'No chats match these filters. <button class="fclear" type="button" onclick="$(\'#fclear\').click()">Clear filters</button>' : 'No chats here yet.'}</div>`;
+    $('#pager').innerHTML = ''; return;
+  }
+  // group by date, but only when the list is actually in date order
+  const grouped = !state.q && (state.sort === 'recent' || state.sort === 'oldest');
+  let html = '';
+  for (const s of r.sessions) {
+    if (grouped) {
+      const g = groupOf(s.ended);
+      if (g !== lastGroup) { html += `<div class="ghead">${esc(g)}</div>`; lastGroup = g; }
+    }
+    html += rowHtml(s);
+  }
+  box.insertAdjacentHTML('beforeend', html);
+  box.querySelectorAll('.row:not([data-wired])').forEach(el => {
+    el.dataset.wired = 1;
+    el.onclick = e => {
+      const btn = e.target.closest('.resume');
+      if (btn) { e.stopPropagation(); resume(el.dataset.uid, btn.dataset.cmd); return; }
+      const pin = e.target.closest('[data-pin]');
+      if (pin) { e.stopPropagation(); togglePin(pin.dataset.pin, pin); return; }
+      const dep = e.target.closest('[data-dep]');
+      if (dep) { e.stopPropagation(); setDeprecated(dep.dataset.dep, true, el); return; }
+      const ren = e.target.closest('[data-ren]');
+      if (ren) { e.stopPropagation(); editTitle(el.querySelector('.ttl'), el.dataset.uid); return; }
+      const th = e.target.closest('[data-thread]');
+      if (th) { e.stopPropagation(); state.thread = th.dataset.thread; state.q = '';
+                $('#q').value = ''; state.offset = 0; loadList(true); return; }
+      const hit = e.target.closest('.hit');
+      openChat(el.dataset.uid, hit ? +hit.dataset.line : null);
+    };
+    el.onkeydown = e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+    };
+  });
+  const shown = state.offset + r.sessions.length;
+  $('#pager').innerHTML = shown < r.total
+    ? `<button class="more">Load ${Math.min(PAGE, r.total - shown)} more (${num(r.total - shown)} left)</button>` : '';
+  const more = $('#pager .more');
+  if (more) more.onclick = () => { state.offset = shown; loadList(false); };
+}
+/** Compress a long chat to a readable number of ticks, keeping the worst of each bucket. */
+function stripHtml(strip, title) {
+  if (!strip || !strip.length) return '';
+  const MAX = 56;
+  let ticks = strip;
+  if (strip.length > MAX) {
+    const per = strip.length / MAX;
+    ticks = Array.from({ length: MAX }, (_, i) =>
+      Math.max(...strip.slice(Math.floor(i * per), Math.max(Math.floor((i + 1) * per), Math.floor(i * per) + 1))));
+  }
+  const errs = strip.filter(v => v === 4).length, ints = strip.filter(v => v === 5).length;
+  const tip = `${strip.length} turn${strip.length === 1 ? '' : 's'}`
+    + (errs ? ` · ${errs} with a failed tool` : '') + (ints ? ` · ${ints} interrupted` : '');
+  return `<div class="strip" title="${esc(tip)}${title ? '' : ''}">${
+    ticks.map(v => `<i data-v="${v}"></i>`).join('')}</div>`;
+}
+
+/** The state of one project, so picking it in the sidebar means something. */
+async function renderOverview() {
+  const box = $('#overview');
+  if (!state.project) { box.hidden = true; box.innerHTML = ''; return; }
+  const o = await get('/api/overview', { project: state.project });
+  if (!o || !o.stats) { box.hidden = true; return; }
+  const s2 = o.stats;
+  box.hidden = false;
+  box.innerHTML = `<div class="ov">
+    <div>
+      <h4>Project</h4>
+      <div style="font-size:15px;font-weight:650;letter-spacing:-.01em">${esc(o.name)}</div>
+      <div class="path">${esc(o.label)}</div>
+      <div class="facts">
+        <span><b>${num(s2.chats)}</b> chats</span>
+        <span><b>${num(s2.prompts)}</b> prompts</span>
+        <span><b>${compact(s2.tools)}</b> tools</span>
+        <span><b>${usd(o.cost)}</b></span>
+        ${s2.errors ? `<span><b>${num(s2.errors)}</b> tool errors</span>` : ''}
+        ${s2.interrupts ? `<span><b>${num(s2.interrupts)}</b> interrupts</span>` : ''}
+        <span>${o.threads ? `<b>${o.threads}</b> thread${o.threads === 1 ? '' : 's'}` : 'no threads'}</span>
+        <span>last active ${esc(ago(s2.last))}</span>
+      </div>
+    </div>
+    <div>
+      <h4>Most worked files</h4>
+      <ul>${(o.files || []).map(f =>
+        `<li><button data-file="${esc(f.path)}" title="${esc(f.path)}">${esc(f.path.split('/').pop())}</button>
+         <em>${f.writes ? f.writes + '✎' : ''} ${f.chats}c</em></li>`).join('') || '<li><em>none</em></li>'}</ul>
+    </div>
+    <div>
+      <h4>Unfinished here</h4>
+      <ul>${(o.open || []).slice(0, 5).map(x =>
+        `<li><button data-uid="${esc(x.uid)}">${esc((x.title || '?').slice(0, 38))}</button>
+         <em>${x.open_tasks.length}</em></li>`).join('') || '<li><em>nothing open</em></li>'}</ul>
+    </div>
+  </div>`;
+  box.querySelectorAll('[data-file]').forEach(b => b.onclick = () => {
+    state.file = b.dataset.file; state.thread = null; state.q = ''; $('#q').value = '';
+    state.offset = 0; loadList(true);
+  });
+  box.querySelectorAll('[data-uid]').forEach(b => b.onclick = () => openChat(b.dataset.uid));
+}
+
+function renderFiles(files) {
+  const box = $('#filestrip');
+  if (!files || !files.length) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  box.innerHTML = `<h3>Files matching "${esc(state.q)}"</h3>` + files.slice(0, 5).map(f =>
+    `<button class="frow" data-f="${esc(f.path)}">
+       <span class="fp">${esc(f.path)}</span>
+       <span class="fc">${f.chats} chat${f.chats === 1 ? '' : 's'}</span>
+       <span class="fc">${f.writes ? f.writes + ' edits' : f.reads + ' reads'}</span>
+     </button>`).join('');
+  box.querySelectorAll('.frow').forEach(b => b.onclick = () => {
+    state.file = b.dataset.f; state.q = ''; $('#q').value = ''; state.offset = 0;
+    loadList(true);
+  });
+}
+
+function renderChips() {
+  const c = [];
+  if (state.day) c.push(`<span class="chip">${new Date(state.day+'T12:00:00').toLocaleDateString()}
+     <button data-x="day" aria-label="clear day filter">×</button></span>`);
+  if (state.project) {
+    const p = state.meta.projects.find(x => x.key === state.project);
+    c.push(`<span class="chip">${esc(p ? p.name : state.project)} <button data-x="project" aria-label="clear project filter">×</button></span>`);
+  }
+  if (state.file) c.push(`<span class="chip" title="${esc(state.file)}">📄 ${esc(state.file.split('/').pop())}
+     <button data-x="file" aria-label="clear file filter">×</button></span>`);
+  if (state.thread) c.push(`<span class="chip">one thread
+     <button data-x="thread" aria-label="clear thread filter">×</button></span>`);
+  $('#chips').innerHTML = c.join(' ');
+  $('#chips').querySelectorAll('button').forEach(b => b.onclick = () => {
+    state[b.dataset.x] = null; state.offset = 0;
+    if (b.dataset.x === 'file' || b.dataset.x === 'thread') { loadList(true); return; }
+    renderProjects(); if (b.dataset.x === 'project') renderOverview();
+    loadList(true);
+  });
+}
+function rowHtml(s) {
+  const bits = [];
+  if (!state.project) bits.push(`<span class="tag">${esc(s.name)}</span>`);
+  bits.push(`${num(s.n_user)} prompt${s.n_user===1?'':'s'}`, `${num(s.n_asst)} replies`);
+  if (s.n_tool) bits.push(`${compact(s.n_tool)} tool calls`);
+  if (s.n_sub) bits.push(`${s.n_sub} subagent${s.n_sub===1?'':'s'}`);
+  const d = dur(s.started, s.ended); if (d) bits.push(d);
+  bits.push(bytes((s.bytes||0) + (s.sub_bytes||0)));
+  if (s.branches && s.branches.length) bits.push(`⑂ ${esc(s.branches[0])}`);
+  const tags = (s.models || []).filter(m => m !== '<synthetic>').slice(0, 3).map(modelTag).join('');
+  const hits = (s.hits || []).map(h =>
+    `<button class="hit" data-line="${h.line}"><span class="r">${
+        h.role === 'tool' ? 'tool' : h.role.startsWith('user') ? 'you' : agentOf(s)}</span>${
+      esc(h.snip).replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>')}</button>`).join('');
+  const extra = s.n_hits && s.n_hits >= 4 ? `<div class="trunc">…more matches inside</div>` : '';
+  return `<div class="row" role="button" tabindex="0" data-uid="${esc(s.uid)}"
+       aria-label="Open chat: ${esc(s.title)}">
+    <div class="top">
+      <span class="ttl${s.renamed ? ' renamed' : ''}"
+        title="${s.renamed ? 'Renamed — transcript says: ' + esc(s.auto_title || '') : esc(s.title)}"
+        >${esc(s.title)}</span>
+      ${s.source === 'codex' ? '<span class="badge codex" title="A Codex chat">codex</span>' : ''}
+      ${s.open_tasks && s.open_tasks.length
+        ? `<span class="badge open" title="${esc(s.open_tasks.map(t => t.subject).join(' · '))}">
+             ${s.open_tasks.length} open</span>` : ''}
+      ${s.thread && s.thread.size > 1
+        ? `<span class="badge thread" data-thread="${esc(s.thread.id)}"
+             title="Show the other chats that worked on the same files">thread of ${s.thread.size}</span>` : ''}
+      <span class="row-actions">
+        <button class="btn pin${s.pinned ? ' on' : ''}" data-pin="${esc(s.uid)}"
+          aria-pressed="${!!s.pinned}" title="${s.pinned ? 'Unpin' : 'Pin to dashboard'}"
+          >${s.pinned ? '★' : '☆'}</button>
+        <button class="btn ren" data-ren="${esc(s.uid)}" title="Rename this chat">✎</button>
+        <button class="btn dep" data-dep="${esc(s.uid)}"
+          title="Deprecate — hide this chat from every other view">⊘</button>
+        <button class="btn resume${s.resume_problem ? ' dead' : ''}" data-cmd="${esc(s.resume || '')}"
+          title="${esc(s.resume_problem || s.resume || '')}"
+          aria-label="Resume this chat in a terminal">▶ Resume</button>
+      </span>
+      <span class="when">${ago(s.ended)}</span>
+    </div>
+    ${!hits && s.first_prompt ? `<div class="prev">${esc(s.first_prompt)}</div>` : ''}
+    <div class="meta">${bits.map(b => `<span>${b}</span>`).join('<span class="dot">·</span>')} ${tags}</div>
+    ${stripHtml(s.strip)}
+    ${hits ? `<div class="hits">${hits}${extra}</div>` : ''}
+  </div>`;
+}
+
+/* ---------------- transcript ---------------- */
+let openSid = null, openSub = null, nextFrom = null, curMeta = null, pageFrom = 0;
+async function openChat(uid, line, sub) {
+  openSid = uid; openSub = sub || null;
+  TURN.clear(); hideSel();
+  const h = '#c=' + uid + (sub ? '&s=' + encodeURIComponent(sub) : '') + (line != null ? '&l=' + line : '');
+  if (location.hash !== h) history.pushState({ uid, sub, line }, '', h);
+  $('#scrim').classList.add('on'); $('#drawer').classList.add('on');
+  $('#dbody').innerHTML = '<div class="spin">reading transcript…</div>';
+  $('#dhead').innerHTML = '';
+  const from = line != null ? Math.max(0, line - 12) : 0;
+  // no line asked for? a chat that is still being written opens at its end
+  const r = await get('/api/transcript',
+    { id: uid, sub: openSub, from, limit: 400, tail: line == null ? 'auto' : '' });
+  if (r.error) { $('#dbody').innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+  pageFrom = r.from ?? from;        // the server may have started us at the end
+  renderHead(r, pageFrom);
+  $('#dbody').innerHTML = eventsHtml(r.events) ;
+  nextFrom = r.next;
+  wireBody(line);
+  if (r.tailed) $('#dbody').scrollTop = $('#dbody').scrollHeight;
+  liveFile = r.file ? r.file.size + ':' + r.file.mtime : null;
+  liveAt = Date.now(); showJump(false); renderLive();
+  scheduleLive(700);                       // start tailing this chat
+}
+function renderHead(r, from) {
+  const m = r.meta;
+  curMeta = m;
+  const isSub = m.kind === 'subagent';
+  const title = isSub ? `Subagent · ${esc(m.name)}` : esc(m.title);
+  const cwd = m.cwd || (m.label || '');
+  const cmd = isSub ? '' : (m.resume || `cd ${cwd || '.'} && claude --resume ${m.id}`);
+  const facts = isSub ? [bytes(m.bytes), `${num(r.n_lines)} records`] : [
+    stamp(m.started), dur(m.started, m.ended), `${num(m.n_user)} prompts`,
+    `${num(m.n_asst)} replies`, `${compact(m.n_tool)} tool calls`,
+    m.turn_secs ? `${mins(m.turn_secs)} of model time` : '',
+    m.n_compact ? `${m.n_compact} memory reset${m.n_compact === 1 ? '' : 's'}${
+      m.ctx_lost ? ` · ${compact(m.ctx_lost)} tokens dropped` : ''}` : '',
+    m.n_api_err ? `${m.n_api_err} api error${m.n_api_err === 1 ? '' : 's'}` : '',
+    bytes((m.bytes||0)+(m.sub_bytes||0)),
+    ...(m.branches||[]).map(b => '⑂ ' + b),
+    ...(m.entrypoints||[]),
+  ].filter(Boolean);
+  const subs = (m.subagents || []).map(s => {
+    const parts = s.name.split('/');
+    const agent = parts.pop().replace(/^agent-a?/, '').slice(0, 6);
+    const wf = parts.length ? parts.join('/').replace(/^wf_/, '') + ' · ' : '';
+    return `<button data-sub="${esc(s.path)}" title="${esc(s.name)}">↳ ${esc(wf + agent)} · ${bytes(s.bytes)}</button>`;
+  }).join('');
+  $('#dhead').innerHTML = `
+    <div class="r1">
+      <div style="flex:1">
+        <h3>${title}</h3>
+        <div class="meta">${facts.map(f => `<span>${esc(f)}</span>`).join('<span class="dot">·</span>')}
+          ${(m.models||[]).filter(x=>x!=='<synthetic>').map(modelTag).join('')}</div>
+      </div>
+      ${isSub ? '' : `<button class="hbtn pin${m.pinned ? ' on' : ''}" data-pin="${esc(m.uid)}"
+          title="${m.pinned ? 'Unpin' : 'Pin to dashboard'}">${m.pinned ? '★ Pinned' : '☆ Pin'}</button>
+        <button class="hbtn ren" data-ren="${esc(m.uid)}" title="Rename this chat">✎</button>
+        <button class="hbtn dep" data-dep="${esc(m.uid)}"
+          title="Deprecate — hide from every other view">⊘</button>`}
+      ${isSub && m.parent ? `<button class="hbtn" data-back="${esc(m.parent)}">↩ parent chat</button>` : ''}
+      <button class="hbtn" id="closed" aria-label="Close">✕</button>
+    </div>
+    <div class="dact">
+      ${cmd ? `<button class="btn primary${m.resume_problem ? ' dead' : ''}" id="dresume"
+          title="${esc(m.resume_problem || cmd)}">▶ Resume in terminal</button>
+        <button class="btn" id="dcopy" title="${esc(cmd)}">Copy command</button>` : ''}
+      <span class="menuwrap">
+        <button class="btn" id="dcopychat" aria-haspopup="true" aria-expanded="false"
+          title="Copy this transcript as text — shift+C">⧉ Copy chat ▾</button>
+        <div class="menu" id="copymenu">
+          <button data-copy="all">Whole chat<small>markdown</small></button>
+          <button data-copy="talk">Conversation only<small>no tool calls</small></button>
+          <button data-copy="visible">What is on screen<small>after Find</small></button>
+          <button data-copy="prompts">Your prompts only<small>markdown</small></button>
+          <button data-copy="json">Raw records<small>json</small></button>
+        </div>
+      </span>
+      ${isSub ? '' : `<span class="menuwrap">
+        <button class="btn" id="dshare" aria-haspopup="true" aria-expanded="false"
+          title="Hand this chat to another agent — Codex, ChatGPT, anything that reads markdown">↗ Share ▾</button>
+        <div class="menu" id="sharemenu">
+          <button data-share="launch">Continue in ${agentOf(m) === 'codex' ? 'Claude Code' : 'Codex'}<small>opens ${esc(TERMINAL)}</small></button>
+          <button data-share="chatgpt">Open in ChatGPT<small>copies, then opens</small></button>
+          <button data-share="copy">Copy handoff<small>markdown</small></button>
+          <button data-share="download">Download handoff<small>whole chat · .md</small></button>
+          <div class="note" id="sharenote">The whole chat, condensed: every prompt and reply,
+            one line per tool call, no tool output unless it failed.</div>
+        </div>
+      </span>`}
+      <button class="btn" id="dexpand" title="Open every tool call and thinking block — a">⌄ Expand all</button>
+      <button class="btn live" id="dlive" type="button"><span class="pip"></span><span class="lbl">Live</span></button>
+      ${cmd ? `<span class="hint">opens ${esc(TERMINAL)}</span>` : ''}
+      <span class="find">
+        <input id="dfind" type="search" placeholder="Find in this chat…" autocomplete="off">
+        <span class="hint" id="dfindn"></span>
+      </span>
+    </div>
+    <div class="path">${esc(m.path || '')}</div>
+    <div class="pinstrip" id="pinstrip"></div>
+    ${turnMap(m)}
+    ${openWork(m)}
+    ${filesBlock(m)}
+    <div id="commits"></div>
+    ${subs ? ((m.subagents || []).length > 6
+        ? `<details class="blk sublist"><summary><span class="car">▸</span><span class="nm">${
+             (m.subagents || []).length} subagent logs</span></summary><div class="subs">${subs}</div></details>`
+        : `<div class="subs">${subs}</div>`) : ''}
+    ${from > 0 ? `<div class="subs"><button id="fromtop">↑ jump to start of chat</button></div>` : ''}`;
+  $('#closed').onclick = closeChat;
+  const back = $('#dhead [data-back]'); if (back) back.onclick = () => openChat(back.dataset.back, null, null);
+  const go = $('#dresume'); if (go) go.onclick = () => resume(m.uid, cmd);
+  const pb = $('#dhead [data-pin]');
+  if (pb) pb.onclick = () => togglePin(pb.dataset.pin, pb);
+  const rb = $('#dhead [data-ren]');
+  if (rb) rb.onclick = () => {
+    const h = $('#dhead h3');
+    if (h) editTitle(h, m.uid, () => { loadList(true); if (view !== 'browse') setView(view); });
+  };
+  const db2 = $('#dhead [data-dep]');
+  if (db2) db2.onclick = () => { setDeprecated(db2.dataset.dep, true); closeChat(); loadList(true); };
+  const cp = $('#dcopy'); if (cp) cp.onclick = () => copy(cmd, 'Resume command copied');
+  const cc = $('#dcopychat'), cm = $('#copymenu');
+  if (cc && cm) {
+    cc.onclick = ev => {
+      ev.stopPropagation();
+      const on = !cm.classList.contains('on');
+      closeMenus();
+      cm.classList.toggle('on', on);
+      cc.setAttribute('aria-expanded', on);
+    };
+    cm.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => {
+      cm.classList.remove('on'); cc.setAttribute('aria-expanded', 'false');
+      copyChat(b.dataset.copy);
+    });
+  }
+  const sb = $('#dshare'), sm = $('#sharemenu');
+  if (sb && sm) {
+    sb.onclick = ev => {
+      ev.stopPropagation();
+      const on = !sm.classList.contains('on');
+      closeMenus();
+      sm.classList.toggle('on', on);
+      sb.setAttribute('aria-expanded', on);
+      if (on) loadHandoff(m.uid);
+    };
+    sm.querySelectorAll('[data-share]').forEach(b => b.onclick = () => {
+      closeMenus();
+      shareChat(b.dataset.share, m.uid);
+    });
+  }
+  const ex = $('#dexpand'); if (ex) ex.onclick = () => toggleExpand();
+  const lv = $('#dlive');
+  if (lv) lv.onclick = () => {
+    liveOn = !liveOn; localStorage.cchatLive = liveOn ? '1' : '0';
+    renderLive(); if (liveOn) scheduleLive(300);
+  };
+  renderLive();
+  const find = $('#dfind');
+  if (find) {
+    let ft;
+    find.oninput = () => { clearTimeout(ft); ft = setTimeout(() => filterTurns(find.value.trim()), 160); };
+    find.onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); find.value = ''; filterTurns(''); } };
+  }
+  const ft = $('#fromtop'); if (ft) ft.onclick = () => openChat(openSid, 0, openSub);
+  setMarks(m.marks);
+  if (!isSub) loadCommits(m.uid);
+  $('#dhead').querySelectorAll('[data-sub]').forEach(b =>
+    b.onclick = () => openChat(openSid, null, b.dataset.sub));
+  $('#dhead').querySelectorAll('[data-file]').forEach(b => b.onclick = () => {
+    closeChat(); state.file = b.dataset.file; state.q = ''; $('#q').value = '';
+    state.thread = null; state.offset = 0; loadList(true);
+  });
+  const fs = $('#freshstart');
+  if (fs) fs.onclick = () => copy(fs.dataset.cmd, 'Fresh-start command copied');
+  $('#dhead').querySelectorAll('.turnmap button').forEach(b => b.onclick = () => {
+    const line = +b.dataset.line;
+    $('#dhead').querySelectorAll('.turnmap button').forEach(x => x.classList.remove('here'));
+    b.classList.add('here');
+    // already on screen? just scroll. otherwise reload the page that holds it
+    let target = null;
+    $('#dbody').querySelectorAll('.turn').forEach(t => {
+      if (!target && +t.dataset.line >= line) target = t;
+    });
+    if (target) {
+      target.classList.remove('flash');
+      void target.offsetWidth;
+      target.classList.add('flash');
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    } else {
+      openChat(openSid, line, openSub);
+    }
+  });
+}
+/** Provenance, so a pasted transcript still says where it came from. */
+function chatHead(n, partial) {
+  const m = curMeta || {};
+  const name = m.kind === 'subagent' ? 'Subagent · ' + (m.name || '') : (m.title || 'chat');
+  const bits = [m.cwd || m.label, m.started ? 'started ' + stamp(m.started) : '',
+                `${n} message${n === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+  return `# ${name}\n${bits}\n` + (m.path ? `source: ${m.path}\n` : '') +
+    (partial ? 'note: only the part of the chat loaded in the view\n' : '') + '\n';
+}
+/** all | talk (no tools) | visible (what Find left) | prompts | json */
+function copyChat(mode) {
+  const turns = [...$('#dbody').querySelectorAll('.turn')];
+  const keep = turns.filter(t =>
+    mode === 'visible' ? !t.classList.contains('nomatch')
+    : mode === 'prompts' ? t.classList.contains('user') &&
+        !t.classList.contains('tool') && !t.classList.contains('side')
+    : true);
+  const evs = keep.map(t => TURN.get(t.dataset.tid)).filter(Boolean);
+  if (!evs.length) { toast('Nothing to copy', true); return; }
+  const label = `${evs.length} message${evs.length === 1 ? '' : 's'} copied`;
+  if (mode === 'json') { copy(JSON.stringify(evs, null, 2), label); return; }
+  const tools = mode === 'all' || mode === 'visible';
+  const body = evs.map(e => turnBlock(e, tools)).filter(Boolean).join('\n\n---\n\n');
+  copy(chatHead(evs.length, !!nextFrom) + body, label);
+}
+/* ---------- share: the chat as a handoff for another agent ----------
+   Built by the server from the whole transcript, not from what is loaded here,
+   so a 300-turn chat hands over its start and its end, not one page. Fetched
+   when the menu opens: the ChatGPT button has to copy and open a tab inside the
+   click, and a browser stops honouring the click once a slow fetch sits between. */
+let handoff = null;
+function loadHandoff(uid) {
+  const p = get('/api/handoff', { uid });
+  handoff = { uid, p };
+  const note = $('#sharenote');
+  p.then(h => {
+    if (!note || handoff.p !== p) return;
+    note.textContent = `About ${compact(h.tokens)} tokens · ${num(h.messages)} messages` +
+      (h.omitted ? ` · ${num(h.omitted)} from the middle left out to fit` : '') +
+      '. Prompts and replies in full, one line per tool call, no tool output unless it failed.';
+  }).catch(() => {});
+  return p;
+}
+async function shareChat(how, uid) {
+  if (how === 'launch') return launchHandoff(uid);
+  if (how === 'download') {
+    const a = document.createElement('a');
+    a.href = '/api/handoff?download=1&uid=' + encodeURIComponent(uid);
+    document.body.appendChild(a); a.click(); a.remove();
+    return;
+  }
+  let h;
+  try { h = await (handoff && handoff.uid === uid ? handoff.p : loadHandoff(uid)); }
+  catch (e) { toast('Could not build the handoff: ' + esc(e.message), true); return; }
+  const what = `Handoff copied (about ${compact(h.tokens)} tokens)`;
+  if (how === 'copy') { copy(h.markdown, what); return; }
+  if (!await copy(h.markdown, what)) return;
+  window.open('https://chatgpt.com/', '_blank', 'noopener');
+  toast(what + ' — paste it into ChatGPT with ⌘V');
+}
+/** Same guard as resume: the server writes the file, picks the directory, and
+    opens the other agent - a Claude chat goes to Codex, a Codex chat to Claude Code. */
+async function launchHandoff(uid) {
+  toast('Opening ' + TERMINAL + '…');
+  let d;
+  try {
+    const r = await fetch('/api/handoff/launch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CChat-Token': TOKEN },
+      body: JSON.stringify({ uid }),
+    });
+    d = await r.json();
+    if (r.status === 403) d = { error: 'this page is older than the server — reload it (⌘R)' };
+  } catch (e) { d = { error: e.message }; }
+  if (d && d.ok) toast(esc(d.agent) + ' is reading the handoff — <code>' + esc(d.file) + '</code>');
+  else toast('Could not open the other agent: ' + esc((d && d.error) || 'unknown error'), true);
+}
+function closeMenus() {
+  document.querySelectorAll('.menu.on').forEach(mn => {
+    mn.classList.remove('on');
+    const b = mn.parentElement.querySelector('[aria-expanded]');
+    if (b) b.setAttribute('aria-expanded', 'false');
+  });
+}
+function toggleExpand(force) {
+  const ds = [...$('#dbody').querySelectorAll('details')];
+  if (!ds.length) { toast('Nothing to expand here', true); return; }
+  const open = force != null ? force : !(ds.filter(d => d.open).length > ds.length / 2);
+  ds.forEach(d => { d.open = open; });
+  const b = $('#dexpand');
+  if (b) b.textContent = open ? '⌃ Collapse all' : '⌄ Expand all';
+}
+
+const KIND_LABEL = {
+  bash: 'shell', read: 'read', edit: 'edit', search: 'web',
+  agent: 'agent', mcp: 'mcp', task: 'task', skill: 'skill', tool: 'tool',
+};
+/** One tool call: kind badge, name, one-line summary, and the io behind a disclosure. */
+function toolHtml(p) {
+  const kind = p.tool || 'tool';
+  const res = p.result;
+  const failed = res && res.error;
+  const stat = !res ? '<span class="rs">no result</span>'
+    : failed ? '<span class="rs err">error</span>'
+    : `<span class="rs">${compact((res.text || '').length + (res.truncated || 0))} chars</span>`;
+  const name = p.label + (p.agent_type ? ' · ' + p.agent_type : '');
+  return `<details class="tc k-${esc(kind)}${failed ? ' failed' : ''}">
+    <summary>
+      <span class="kind"><i></i>${esc(KIND_LABEL[kind] || kind)}</span>
+      <span class="nm">${esc(name)}</span>
+      <span class="br">${esc(p.brief || '')}</span>
+      ${stat}
+    </summary>
+    <div class="io">
+      <div><h4>call</h4><pre>${esc(p.input || '')}</pre></div>
+      ${res ? `<div><h4>${failed ? 'error' : 'result'}</h4><pre>${esc(res.text)}${
+          res.truncated ? `\n\n… ${compact(res.truncated)} more characters not shown` : ''}</pre></div>` : ''}
+    </div>
+  </details>`;
+}
+
+/** The same shape as the row strip, but every tick jumps to that turn. */
+function turnMap(m) {
+  const t = m.turns || [];
+  if (t.length < 2) return '';
+  const errs = t.filter(x => x.e).length, ints = t.filter(x => x.i).length;
+  const ticks = t.map((x, idx) => {
+    const v = x.i ? 5 : x.e ? 4 : !x.n ? 0 : x.n <= 2 ? 1 : x.n <= 6 ? 2 : 3;
+    const what = x.i ? 'interrupted' : x.e ? `${x.e} failed tool${x.e === 1 ? '' : 's'}`
+      : x.n ? `${x.n} tool call${x.n === 1 ? '' : 's'}` : 'no tools';
+    return `<button data-v="${v}" data-line="${x.line}" data-i="${idx}"
+      title="Turn ${idx + 1} — ${what}${x.w ? ` · ${num(x.w)} words` : ''}"
+      aria-label="Jump to turn ${idx + 1}"></button>`;
+  }).join('');
+  return `<div class="turnmap">${ticks}</div>
+    <div class="mapnote"><span>${t.length} turns — click to jump</span>
+      ${errs ? `<span style="color:var(--critical)">${errs} with a failed tool</span>` : ''}
+      ${ints ? `<span style="color:#fab219">${ints} interrupted</span>` : ''}
+      <span class="grow"></span><span>first turn</span><span>→</span><span>last</span></div>`;
+}
+
+/** Unfinished items from the chat's last task reminder — the "where was I" answer. */
+function openWork(m) {
+  const t = m.open_tasks || [];
+  if (!t.length) return '';
+  return `<div class="tasklist">${t.slice(0, 6).map(x =>
+    `<div><i>${esc(x.status || 'open')}</i><span>${esc(x.subject || '')}</span></div>`).join('')}
+    ${t.length > 6 ? `<div><i></i><span>+${t.length - 6} more</span></div>` : ''}</div>`;
+}
+
+/** Files this chat touched, and what resuming it would replay. */
+/** What a chat put into git. The join is by file and by time, so it is evidence,
+    not proof — the numbers that make the case travel with each commit. */
+async function loadCommits(uid) {
+  let r;
+  try { r = await get('/api/commits', { uid }); } catch (e) { return; }
+  const box = $('#commits');
+  if (!box || openSid !== uid || !r.commits || !r.commits.length) return;
+  box.innerHTML = `<details class="blk"><summary><span class="car">▸</span>
+    <span class="nm">${r.commits.length} commit${r.commits.length === 1 ? '' : 's'} from this chat</span>
+    <span class="br">${esc(r.commits.map(c => c.subject).join(' · ').slice(0, 90))}</span></summary>
+    <div class="cmts">${r.commits.map(c => `
+      <div class="cmt" data-sha="${esc(c.full)}" title="${esc(c.hit_files.join('\n'))}">
+        <code>${esc(c.sha)}</code>
+        <span class="sub2">${esc(c.subject)}</span>
+        <span class="ev">${c.exact ? `${c.exact} of its ${c.files} files are ones this chat edited`
+          : `${c.matched} file name${c.matched === 1 ? '' : 's'} in common`}${
+          c.after ? ' · landed after the chat' : ''}</span>
+      </div>`).join('')}</div></details>`;
+  box.querySelectorAll('.cmt').forEach(el =>
+    el.onclick = () => copy(el.dataset.sha, 'Commit sha copied'));
+}
+function filesBlock(m) {
+  const f = m.files || [];
+  let out = '';
+  if (f.length) {
+    out += `<details class="blk"><summary><span class="car">▸</span>
+      <span class="nm">${f.length} file${f.length === 1 ? '' : 's'} touched</span>
+      <span class="br">${esc(f.slice(0, 3).map(x => x.path.split('/').pop()).join(', '))}</span></summary>
+      <div class="subs">${f.slice(0, 30).map(x =>
+        `<button data-file="${esc(x.path)}" title="${esc(x.path)}">${
+          x.writes ? '✎ ' : ''}${esc(x.path.split('/').pop())}</button>`).join('')}</div></details>`;
+  }
+  if (m.last_ctx > 200000) {
+    out += `<div class="ctxwarn">Resuming this chat replays <b>${compact(m.last_ctx)} tokens</b>
+      of context. For a fresh angle it is cheaper to start a new chat in the same
+      directory — <button class="btn" id="freshstart"
+      data-cmd="cd ${esc(m.cwd || '.')} && ${agentOf(m)}">Start fresh here</button></div>`;
+  }
+  return out;
+}
+
+/* ---------------- copying a chat ----------------
+   The transcript is rendered HTML, but a copy should be the text you'd paste into
+   an editor. So every turn keeps its source event, keyed by the tid on the node. */
+const TURN = new Map();
+let tidN = 0;
+
+/** Who said it — the same label the turn header shows. */
+const MOMENT_TAG = { away: 'recap', compact: 'memory reset', error: 'api error' };
+function momentHtml(p) {
+  const body = p.what === 'compact' && p.a == null
+    ? 'The chat ran out of room and was compacted here. Anything before this point is gone from its memory.'
+    : p.what === 'compact'
+    ? `The chat ran out of room and was compacted here: ${compact(p.a || 0)} tokens in, ${
+        compact(p.b || 0)} kept, ${compact((p.a || 0) - (p.b || 0))} dropped${
+        p.secs ? ` — it took ${p.secs}s` : ''}. Anything before this point is gone from its memory.`
+    : esc(p.text || '');
+  return `<div class="moment m-${p.what}"><span class="tag">${MOMENT_TAG[p.what] || p.what}</span>
+    <div>${body}</div></div>`;
+}
+const MOMENT_WHO = { away: 'while you were away', compact: 'context', error: 'api' };
+/** Which agent wrote a chat, as the transcript signs its replies. */
+function agentOf(m) { return m && m.source === 'codex' ? 'codex' : 'claude'; }
+function whoOf(e) {
+  if (e.role === 'system') return MOMENT_WHO[(e.parts[0] || {}).what] || 'note';
+  const onlyTool = e.role === 'user' && e.parts.every(p => p.kind === 'tool_result');
+  const onlyCalls = e.role === 'assistant' && e.parts.every(p => p.kind === 'tool');
+  const me = agentOf(curMeta);
+  return e.role !== 'user' ? (onlyCalls ? me + ' · tools' : me)
+    : onlyTool ? 'tool result'
+    : e.side ? 'subagent prompt'
+    : e.is_cmd ? 'command' : 'you';
+}
+function fence(t) {
+  t = String(t ?? '').replace(/\s+$/, '');
+  const bar = '`'.repeat(Math.max(3, ...(t.match(/`+/g) || ['']).map(m => m.length + 1)));
+  return bar + '\n' + t + '\n' + bar;
+}
+function partText(p) {
+  if (p.kind === 'text') return p.text || '';
+  if (p.kind === 'command') return '`' + (p.text || '') + '`';
+  if (p.kind === 'stdout') return fence(p.text);
+  if (p.kind === 'thinking') return '[thinking]\n' + (p.text || '');
+  if (p.kind === 'tool') {
+    const res = p.result;
+    let out = `[${KIND_LABEL[p.tool] || p.tool || 'tool'}] ${p.label || ''}` +
+              (p.agent_type ? ' · ' + p.agent_type : '') + (p.brief ? ' — ' + p.brief : '');
+    if (p.input) out += '\n' + fence(p.input);
+    if (res) out += '\n' + (res.error ? 'error:' : 'result:') + '\n' +
+      fence((res.text || '') + (res.truncated ? `\n… ${res.truncated} more characters not shown` : ''));
+    return out;
+  }
+  return (p.error ? 'error:\n' : '') +
+    fence((p.text || '') + (p.truncated ? `\n… ${p.truncated} more characters not shown` : ''));
+}
+/** One turn as markdown. `tools` off keeps only what was actually said. */
+function turnText(e, tools) {
+  if (e.role === 'system') return (e.parts[0] || {}).text || '';
+  return (e.parts || [])
+    .filter(p => tools !== false || p.kind === 'text' || p.kind === 'command')
+    .map(partText).filter(t => t.trim()).join('\n\n');
+}
+function turnBlock(e, tools) {
+  const body = turnText(e, tools);
+  if (!body.trim()) return '';
+  const head = [whoOf(e), e.model ? shortModel(e.model) : '', stamp(e.ts)].filter(Boolean).join(' · ');
+  return `**${head}**\n\n${body}`;
+}
+function turnOf(el) { return TURN.get(el && el.closest('.turn') && el.closest('.turn').dataset.tid); }
+
+function eventsHtml(events) {
+  if (!events.length) return '<div class="empty">nothing to show</div>';
+  return events.map(e => {
+    // tool results come back as user-role records; they are not something you said
+    const onlyTool = e.role === 'user' && e.parts.every(p => p.kind === 'tool_result');
+    const onlyCalls = e.role === 'assistant' && e.parts.every(p => p.kind === 'tool');
+    const who = whoOf(e);
+    const tid = 't' + (++tidN);
+    TURN.set(tid, e);
+    const inner = e.parts.map(p => {
+      if (p.kind === 'moment') return momentHtml(p);
+      if (p.kind === 'text') return `<div class="md">${md(p.text)}</div>`;
+      if (p.kind === 'command') return `<div class="cmdline">${esc(p.text)}</div>`;
+      if (p.kind === 'stdout') return `<pre class="out">${esc(p.text)}</pre>`;
+      if (p.kind === 'thinking')
+        return `<details class="blk think"><summary><span class="car">▸</span><span class="nm">thinking</span>
+                <span class="br">${esc(p.text.slice(0, 90))}…</span></summary><pre>${esc(p.text)}</pre></details>`;
+      if (p.kind === 'tool') return toolHtml(p);
+      const label = p.error ? 'error' : 'output';
+      const head = (p.text || '').split('\n')[0].slice(0, 90);
+      return `<details class="blk${p.error ? ' err' : ''}"><summary><span class="car">▸</span>
+              <span class="nm">${label}</span><span class="br">${esc(head)}</span></summary>
+              <pre>${esc(p.text)}${p.truncated ? `\n\n… ${compact(p.truncated)} more characters not shown` : ''}</pre></details>`;
+    }).join('');
+    return `<div class="turn ${e.role}${onlyTool ? ' tool' : ''}${e.side ? ' side' : ''}${
+      PINNED.has(e.line) ? ' pinned' : ''}"
+      data-line="${e.line}" data-tid="${tid}">
+      <div class="who"><span>${who}</span>${e.model ? `<span class="m">${esc(String(e.model).replace(/^claude-/,''))}</span>` : ''}
+        <span class="m">${esc(stamp(e.ts))}</span>
+        <span class="acts">
+          <button data-act="copy" title="Copy this message as markdown (c)">copy</button>
+          <button data-act="quote" title="Copy the words only, as a &gt; quote">quote</button>
+          <button data-act="link" title="Copy a link that reopens the chat here">link</button>
+          <button data-act="pin" class="${PINNED.has(e.line) ? 'pinned' : ''}"
+            title="Pin this message — jump back to it from the top (p)">${
+            PINNED.has(e.line) ? 'pinned' : 'pin'}</button>
+        </span></div>
+      <div class="bubble${onlyCalls ? ' bare' : ''}">${inner}</div></div>`;
+  }).join('');
+}
+
+/** Hide turns that don't contain the query — cheap in-chat find for long chats. */
+function filterTurns(q) {
+  const turns = $('#dbody').querySelectorAll('.turn');
+  const n = $('#dfindn');
+  if (!q) {
+    turns.forEach(t => t.classList.remove('nomatch'));
+    if (n) n.textContent = '';
+    return;
+  }
+  const needle = q.toLowerCase();
+  let hits = 0, first = null;
+  turns.forEach(t => {
+    const on = t.textContent.toLowerCase().includes(needle);
+    t.classList.toggle('nomatch', !on);
+    if (on) { hits++; first = first || t; }
+  });
+  if (n) n.textContent = hits ? `${hits} message${hits === 1 ? '' : 's'}` : 'no match';
+  if (first) first.scrollIntoView({ block: 'center' });
+}
+
+/** Every code block, tool payload and output pane gets its own copy button. */
+function decorateCode(body) {
+  body.querySelectorAll('pre').forEach(pre => {
+    if (pre.dataset.cw) return;
+    pre.dataset.cw = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'cw';
+    pre.parentNode.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'cbtn'; b.textContent = '⧉ copy';
+    b.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); copyOn(b, pre.innerText, 'Block copied'); };
+    wrap.appendChild(b);
+  });
+}
+function wireBody(focusLine) {
+  const body = $('#dbody');
+  decorateCode(body);
+  if (nextFrom) {
+    body.insertAdjacentHTML('beforeend', `<button class="more" id="loadmore">Load more of this chat</button>`);
+    $('#loadmore').onclick = async () => {
+      const btn = $('#loadmore'); btn.textContent = 'loading…';
+      const r = await get('/api/transcript', { id: openSid, sub: openSub, from: nextFrom, limit: 400 });
+      btn.remove(); nextFrom = r.next;
+      body.insertAdjacentHTML('beforeend', eventsHtml(r.events));
+      wireBody(null);
+      if (!nextFrom) showJump(false);      // the end is on screen: live tail resumes
+      const ex = $('#dexpand'); if (ex) ex.textContent = '⌄ Expand all';
+      const f = $('#dfind'); if (f && f.value.trim()) filterTurns(f.value.trim());
+    };
+  }
+  if (focusLine != null) {
+    const turns = [...body.querySelectorAll('.turn')];
+    const best = turns.find(t => +t.dataset.line >= focusLine) || turns[turns.length - 1];
+    if (best) { best.classList.add('flash'); best.scrollIntoView({ block: 'center' }); }
+  }
+}
+function closeChat() {
+  $('#scrim').classList.remove('on'); $('#drawer').classList.remove('on');
+  hideSel(); showJump(false);
+  const wasLive = Date.now() - liveAt < 120000;
+  openSid = openSub = null; curMeta = null; liveFile = null;
+  if (location.hash) history.pushState(null, '', location.pathname);
+  if (wasLive) listRefresh();              // the chat grew while you watched it
+  scheduleLive(500);
+}
+
+/* ---------- recaps -------------------------------------------------------
+   Claude writes a line into the transcript whenever you walk away from a chat,
+   and marks the points where its own memory was compacted. 657 of those recaps
+   were sitting in these files unread. This is the feed of them. */
+/** The short project name the sidebar shows, from its mangled directory key. */
+const shortProject = key => {
+  const p = (state.meta && state.meta.projects || []).find(x => x.key === key);
+  return p ? p.name : String(key || '').split('-').pop();
+};
+const REC_KINDS = [
+  { key: 'away', label: 'Recaps', tag: 'recap' },
+  { key: 'compact', label: 'Memory resets', tag: 'compacted' },
+  { key: 'error', label: 'API failures', tag: 'api' },
+];
+const rec = { kinds: ['away'], offset: 0, more: false };
+
+async function loadRecaps(reset) {
+  if (reset) { rec.offset = 0; $('#reclist').innerHTML = '<div class="spin">reading…</div>'; }
+  const r = await get('/api/recaps', {
+    kind: rec.kinds.join(','), project: state.project, limit: 60, offset: rec.offset,
+  });
+  renderRecFilters(r.counts || {});
+  $('#reccount').textContent = (r.counts || {}).away || '';
+  $('#recsub').textContent = r.total
+    ? `${num(r.total)} moment${r.total === 1 ? '' : 's'}${
+        state.project ? ' in ' + shortProject(state.project) : ''} — click one to open the chat there`
+    : 'nothing here yet';
+  renderRecaps(r, reset);
+}
+function renderRecFilters(counts) {
+  $('#recchips').innerHTML = REC_KINDS.map(k =>
+    `<button class="btn${rec.kinds.includes(k.key) ? ' on' : ''}" data-kind="${k.key}">${
+      k.label}${counts[k.key] ? ` <b>${counts[k.key]}</b>` : ''}</button>`).join('');
+  $('#recchips').querySelectorAll('[data-kind]').forEach(b => b.onclick = () => {
+    const k = b.dataset.kind;
+    rec.kinds = rec.kinds.includes(k) ? rec.kinds.filter(x => x !== k) : [...rec.kinds, k];
+    if (!rec.kinds.length) rec.kinds = [k];
+    loadRecaps(true);
+  });
+}
+function recLine(m) {
+  if (m.kind === 'compact') {
+    const lost = (m.a || 0) - (m.b || 0);
+    return `memory reset — ${compact(m.a || 0)} tokens in, ${compact(m.b || 0)} kept, ${
+      compact(lost)} dropped${m.secs ? ` · took ${Math.round(m.secs)}s` : ''}`;
+  }
+  return esc(m.text || '');
+}
+function renderRecaps(r, reset) {
+  const box = $('#reclist');
+  if (reset) box.innerHTML = '';
+  if (!r.moments.length && reset) {
+    box.innerHTML = '<div class="empty">Nothing recorded here yet.</div>';
+    $('#recmore').innerHTML = ''; return;
+  }
+  let html = '', group = reset ? null : recGroup;
+  for (const m of r.moments) {
+    const g = groupOf(m.ts);
+    if (g !== group) { html += `<div class="ghead2">${esc(g)}</div>`; group = g; }
+    const tag = (REC_KINDS.find(k => k.key === m.kind) || {}).tag || m.kind;
+    html += `<div class="rec k-${m.kind}" data-uid="${esc(m.uid)}" data-line="${m.line}">
+      <div class="when">${esc(new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</div>
+      <div>
+        <div class="body"><span class="tag">${esc(tag)}</span>${recLine(m)}</div>
+        <div class="src"><b>${esc(m.title || '')}</b> · ${esc(shortProject(m.project))}</div>
+      </div></div>`;
+  }
+  recGroup = group;
+  box.insertAdjacentHTML('beforeend', html);
+  box.querySelectorAll('.rec:not([data-wired])').forEach(el => {
+    el.dataset.wired = 1;
+    el.onclick = () => openChat(el.dataset.uid, +el.dataset.line);
+  });
+  $('#recmore').innerHTML = r.more
+    ? '<button class="more" id="recmoreb">Show older</button>' : '';
+  const b = $('#recmoreb');
+  if (b) b.onclick = () => { rec.offset += 60; b.textContent = 'loading…'; loadRecaps(false); };
+}
+let recGroup = null;
+
+/* ---------- what is running right now ------------------------------------
+   Three sessions going at once is normal here. The question that matters is
+   which one stopped and is waiting for you, and the end of each transcript
+   answers it: still being written = working; a tool call with no result and
+   nothing moving = it is sitting on a permission prompt; answered and quiet =
+   your turn. */
+const STATE_WORD = { working: 'working', blocked: 'needs you', waiting: 'your turn', idle: 'idle' };
+let nowRows = [], nowAt = 0, nowSeen = new Map();
+let notifyOn = localStorage.cchatNotify === '1';
+
+function since(sec) {
+  if (sec < 60) return sec + 's';
+  if (sec < 3600) return Math.round(sec / 60) + 'm';
+  return (sec / 3600).toFixed(1) + 'h';
+}
+async function loadNow() {
+  const r = await get('/api/now');
+  const base = Date.now();
+  nowRows = (r.now || []).map(x => ({ ...x, at: base - x.age * 1000 }));
+  renderNow();
+  pingNotify();
+}
+function renderNow() {
+  const card = $('#nowcard'), box = $('#nowlist');
+  const live = nowRows.filter(x => x.state !== 'idle');
+  card.hidden = !live.length;
+  if (!live.length) return;
+  const n = live.filter(x => x.state === 'working').length;
+  const need = live.filter(x => x.state === 'blocked').length;
+  $('#nowsub').textContent = [n ? `${n} working` : '', need ? `${need} waiting on you` : '',
+    `${live.length} open`].filter(Boolean).join(' · ');
+  box.innerHTML = live.map(x => `
+    <div class="nowrow s-${x.state}" data-uid="${esc(x.uid)}" data-cmd="${esc(x.resume || '')}">
+      <span class="st"><i></i>${STATE_WORD[x.state]}</span>
+      <div>
+        <div class="who2">${esc(x.title || '(untitled)')}${
+          x.source === 'codex' ? ' <span class="badge codex">codex</span>' : ''}</div>
+        <div class="meta2">${esc(x.label || '')}${x.branch ? ' ⑂ ' + esc(x.branch) : ''}${
+          x.model ? '<span class="dot">·</span>' + esc(String(x.model).replace(/^claude-/, '')) : ''}</div>
+        ${x.last ? `<div class="said">${esc(x.last)}</div>` : ''}
+      </div>
+      <div style="text-align:right">
+        <div class="age" data-at="${x.at}">${since(x.age)}</div>
+        ${x.cwd ? '<button class="btn go">▶ Resume</button>' : ''}
+      </div>
+    </div>`).join('');
+}
+setInterval(() => {                        // the clocks tick without asking the server
+  document.querySelectorAll('#nowlist .age').forEach(el => {
+    el.textContent = since(Math.max(0, Math.round((Date.now() - +el.dataset.at) / 1000)));
+  });
+}, 1000);
+$('#nowlist').addEventListener('click', e => {
+  const row = e.target.closest('.nowrow');
+  if (!row) return;
+  if (e.target.closest('.go')) { resume(row.dataset.uid, row.dataset.cmd); return; }
+  openChat(row.dataset.uid);
+});
+$('#nowbell').onclick = async () => {
+  if (!notifyOn && 'Notification' in window && Notification.permission !== 'granted') {
+    const ok = await Notification.requestPermission();
+    if (ok !== 'granted') { toast('Your browser refused notifications', true); return; }
+  }
+  notifyOn = !notifyOn;
+  localStorage.cchatNotify = notifyOn ? '1' : '0';
+  renderBell();
+};
+function renderBell() {
+  const b = $('#nowbell');
+  b.classList.toggle('on', notifyOn);
+  b.textContent = notifyOn ? '🔔 Notifying' : '🔔 Notify me';
+  b.title = notifyOn ? 'You get a notification when a session stops and waits for you'
+                     : 'Tell me when a session needs me';
+}
+renderBell();
+/** Only when a session stops: working → needs you, or working → your turn. */
+function pingNotify() {
+  for (const x of nowRows) {
+    const was = nowSeen.get(x.uid);
+    nowSeen.set(x.uid, x.state);
+    if (!notifyOn || was !== 'working' || x.state === 'working' || x.state === 'idle') continue;
+    if (!('Notification' in window) || Notification.permission !== 'granted') continue;
+    const who = x.source === 'codex' ? 'Codex' : 'Claude';
+    const n = new Notification(x.state === 'blocked' ? who + ' needs you' : who + ' is done',
+      { body: `${x.title}\n${x.label || ''}`, tag: x.uid });
+    n.onclick = () => { window.focus(); openChat(x.uid); };
+  }
+}
+
+/* ---------- live tail ----------------------------------------------------
+   A transcript keeps growing while you chat in the terminal. Asking the server
+   for one stat() every couple of seconds is free, so the open chat follows the
+   file by itself and the ↻ button becomes something you never have to press.
+   Nothing is polled while the tab is in the background. */
+let liveOn = localStorage.cchatLive !== '0';
+let liveTimer = null, liveFile = null, liveAt = 0, liveBusy = false, metaAt = 0, liveStale = false;
+let listSig = null, listAt = 0;   // listSig: the index state the list was built from
+
+function renderLive() {
+  const b = $('#dlive');
+  if (!b) return;
+  const fresh = Date.now() - liveAt < 90000;
+  b.classList.toggle('on', liveOn);
+  b.querySelector('.lbl').textContent = !liveOn ? 'Live off' : fresh ? 'Live' : 'Live · idle';
+  b.title = liveOn
+    ? 'Following this chat — new messages appear as they are written. Click to stop.'
+    : 'Not following this chat. Click to follow it again.';
+}
+function beat() {
+  const b = $('#dlive');
+  if (!b) return;
+  b.classList.remove('beat'); void b.offsetWidth; b.classList.add('beat');
+}
+let jumpMode = 'bottom';
+function showJump(on, mode) {
+  jumpMode = mode || 'bottom';
+  const b = $('#djump');
+  b.textContent = jumpMode === 'end' ? '↓ new messages — go to the end' : '↓ new messages';
+  b.classList.toggle('on', !!on);
+}
+function atBottom(el, slack) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < (slack || 140);
+}
+
+function liveDelay() {
+  if (!openSid || !liveOn) return 8000;
+  return Date.now() - liveAt < 90000 ? 2000 : 6000;   // quiet chats ask less often
+}
+function scheduleLive(ms) {
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(liveTick, ms == null ? liveDelay() : ms);
+}
+async function liveTick() {
+  if (document.hidden || liveBusy) return scheduleLive();
+  // "Live off" stops this chat from moving under you; the list still keeps up
+  const follow = liveOn && !!openSid;
+  try {
+    const r = await get('/api/live', follow ? { id: openSid, sub: openSub } : {});
+    if (follow && r.file && !r.file.gone) {
+      const sig = r.file.size + ':' + r.file.mtime;
+      if (liveFile && sig !== liveFile) {
+        liveAt = Date.now();
+        // the header is drawn from the index, not the file, so re-read this one
+        // chat now and then: that is how a rename in the terminal reaches it
+        if (!openSub && Date.now() - metaAt > 15000) {
+          metaAt = Date.now();
+          try { await get('/api/reindex', { uid: openSid }); } catch (e) {}
+        }
+        await tailRefresh();
+        beat();
+      }
+      liveFile = sig;
+    }
+    renderLive();
+    if (Date.now() - nowAt > 4500) { nowAt = Date.now(); await loadNow(); }
+    // the server says outright whether the index is behind the files on disk, so
+    // there is no baseline to get wrong. With a chat open the list can wait.
+    if (!openSid && (r.stale || (listSig && r.indexed !== listSig))) await listRefresh();
+    listSig = r.indexed;
+  } catch (e) {
+    // a server started before this page existed has no /api/live. Say so once,
+    // loudly, instead of looking like live updates simply don't work.
+    if (/not found/i.test(e.message || '') && !liveStale) {
+      liveStale = true;
+      toast('This page is newer than the server. Restart cchat to get live updates.', true);
+      const b = $('#reindex'); b.classList.add('stale'); b.title = 'Restart cchat — the server is running older code';
+      return;                              // no point asking again
+    }
+  }
+  scheduleLive();
+}
+
+/** Re-render the last turn from disk, keeping your place and your open blocks. */
+async function tailRefresh() {
+  const body = $('#dbody');
+  if (!openSid) return;
+  // reading an earlier page: say the chat moved, don't drag you to the end
+  if (nextFrom) { showJump(true, 'end'); return; }
+  const turns = [...body.querySelectorAll('.turn')];
+  if (!turns.length) return;
+  // re-read from the start of the current turn, so a tool result still folds
+  // into the call it answers instead of arriving as an orphan block
+  const prompts = body.querySelectorAll('.turn.user:not(.tool)');
+  const from = +(prompts[prompts.length - 1] || turns[turns.length - 1]).dataset.line;
+  liveBusy = true;
+  try {
+    const r = await get('/api/transcript', { id: openSid, sub: openSub, from, limit: 1000 });
+    if (r.error || !r.events || !r.events.length) return;
+    const stay = atBottom(body);
+    const gone = turns.filter(t => +t.dataset.line >= from);
+    const had = new Set(gone.map(t => +t.dataset.line));
+    const wasOpen = new Set();             // which blocks you had expanded
+    gone.forEach(t => [...t.querySelectorAll('details')].forEach((d, i) => {
+      if (d.open) wasOpen.add(t.dataset.line + ':' + i);
+    }));
+    const allOpen = ($('#dexpand') || {}).textContent === '⌃ Collapse all';
+    const frag = document.createElement('div');
+    frag.innerHTML = eventsHtml(r.events);
+    const fresh = [...frag.children];
+    gone.forEach(t => TURN.delete(t.dataset.tid));
+    if (gone.length) { gone[0].replaceWith(...fresh); gone.slice(1).forEach(t => t.remove()); }
+    else body.append(...fresh);
+    const more = $('#loadmore'); if (more) more.remove();
+    fresh.forEach(t => {
+      [...t.querySelectorAll('details')].forEach((d, i) => {
+        if (allOpen || wasOpen.has(t.dataset.line + ':' + i)) d.open = true;
+      });
+      if (!had.has(+t.dataset.line)) t.classList.add('flash');
+    });
+    nextFrom = r.next;
+    if (r.file) liveFile = r.file.size + ':' + r.file.mtime;
+    wireBody(null);
+    refreshHead(r);
+    const f = $('#dfind'); if (f && f.value.trim()) filterTurns(f.value.trim());
+    if (stay) { body.scrollTop = body.scrollHeight; showJump(false); }
+    else showJump(true);
+  } catch (e) { /* leave what is on screen alone */ }
+  finally { liveBusy = false; }
+}
+
+/** The same pins, gathered across chats — the dashboard's table of contents. */
+async function loadMarks() {
+  const d = await get('/api/marks', { project: state.project, limit: 100 });
+  const card = $('#markcard'), box = $('#marklist');
+  card.hidden = !d.marks.length;
+  if (!d.marks.length) return;
+  $('#marksub').textContent = `${d.marks.length} message${d.marks.length === 1 ? '' : 's'}`;
+  box.innerHTML = d.marks.map(m => `
+    <div class="markrow" data-uid="${esc(m.uid)}" data-line="${m.line}">
+      <div>
+        <div class="mtxt">${esc(m.label || 'message ' + m.line)}</div>
+        <div class="msrc">${m.who ? `<b>${esc(m.who)}</b> · ` : ''}${esc(m.title)}${
+          m.project ? ' · ' + esc(shortProject(m.project)) : ''}</div>
+      </div>
+      <div class="mwhen">${esc(ago(m.at))}</div>
+    </div>`).join('');
+  box.querySelectorAll('.markrow').forEach(el =>
+    el.onclick = () => openChat(el.dataset.uid, +el.dataset.line));
+}
+
+/* ---------- pinned messages ---------------------------------------------
+   A long chat has three or four moments you keep coming back to: the decision,
+   the command that worked, the error you will hit again. Pin them and they sit
+   at the top of the chat as chips. The pins are yours, so an index rebuild
+   never touches them. */
+const PINNED = new Set();               // lines pinned in the chat now open
+
+function setMarks(marks) {
+  curMarks = marks || [];
+  pinAt = -1;
+  PINNED.clear();
+  curMarks.forEach(m => PINNED.add(m.line));
+  renderPinStrip();
+  $('#dbody').querySelectorAll('.turn').forEach(t => {
+    const on = PINNED.has(+t.dataset.line);
+    t.classList.toggle('pinned', on);
+    const b = t.querySelector('[data-act="pin"]');
+    if (b) { b.classList.toggle('pinned', on); b.textContent = on ? 'pinned' : 'pin'; }
+  });
+}
+let curMarks = [];
+
+function renderPinStrip() {
+  const box = $('#pinstrip');
+  if (!box) return;
+  if (!curMarks.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<span class="lead" title="p pins what you are reading · shift+P walks them"
+    >pinned</span>` + curMarks.map(m => `
+    <span class="pinchip" data-line="${m.line}" title="${esc(m.label || '')}">
+      ${m.who ? `<span class="w">${esc(m.who)}</span>` : ''}
+      <span class="t">${esc(m.label || 'message ' + m.line)}</span>
+      <button class="x" data-unpin="${m.line}" title="Remove this pin"
+        aria-label="Remove this pin">×</button>
+    </span>`).join('');
+  box.querySelectorAll('.pinchip').forEach(c => c.onclick = e => {
+    if (e.target.closest('[data-unpin]')) { markMessage(+c.dataset.line, false); return; }
+    jumpToLine(+c.dataset.line);
+  });
+}
+
+/** Shift-P walks the pins in order, so a long chat has a table of contents.
+    It steps through the list rather than reading the scroll position, so
+    pressing it twice always moves you twice. */
+let pinAt = -1;
+function nextPin() {
+  if (!curMarks.length) { toast('Nothing pinned in this chat yet', true); return; }
+  pinAt = (pinAt + 1) % curMarks.length;
+  jumpToLine(curMarks[pinAt].line);
+}
+
+/** Already on screen? Scroll to it. Otherwise load the page that holds it. */
+function jumpToLine(line) {
+  const turns = [...$('#dbody').querySelectorAll('.turn')];
+  const hit = turns.find(t => +t.dataset.line === line)
+           || turns.find(t => +t.dataset.line >= line);
+  if (hit && turns.length && +turns[0].dataset.line <= line) {
+    turns.forEach(t => t.classList.remove('flash'));   // one mark at a time
+    void hit.offsetWidth; hit.classList.add('flash');
+    hit.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+  openChat(openSid, line, openSub);
+}
+
+/** Pin or unpin one message. `on` omitted means toggle. */
+async function markMessage(line, on) {
+  if (!openSid || openSub) { toast('Pins live on the chat itself', true); return; }
+  if (on == null) on = !PINNED.has(line);
+  const turn = [...$('#dbody').querySelectorAll('.turn')].find(t => +t.dataset.line === line);
+  const ev = turn ? TURN.get(turn.dataset.tid) : null;
+  const label = ev ? (turnText(ev, false) || turnText(ev, true) || '').slice(0, 160) : '';
+  let d;
+  try {
+    d = await post('/api/mark', { uid: openSid, line, on, who: ev ? whoOf(ev) : '', label });
+  } catch (e) { toast('Could not save the pin: ' + esc(e.message), true); return; }
+  if (!d) return;
+  if (curMeta) curMeta.marks = d.marks;
+  setMarks(d.marks);
+  toast(d.pinned ? 'Message pinned' : 'Pin removed');
+}
+
+/** What the header shows. Redrawing it costs you the Find box, so redraw only
+    when one of these moved — a rename in the terminal, or another turn. */
+const headSig = m => !m ? '' : [m.title, m.n_user, m.n_asst, m.n_tool, m.bytes, m.ended,
+  (m.models || []).join(','), (m.branches || []).join(','), (m.subagents || []).length,
+  (m.turns || []).length, (m.open_tasks || '').length].join('|');
+
+function refreshHead(r) {
+  if (!r.meta || headSig(r.meta) === headSig(curMeta)) return;
+  const f = $('#dfind');
+  const q = f ? f.value : '', had = f && document.activeElement === f;
+  renderHead(r, pageFrom);
+  const f2 = $('#dfind');
+  if (f2 && q) { f2.value = q; if (had) { f2.focus(); f2.selectionStart = f2.value.length; } }
+}
+
+/** New chats, or new turns in chats you are not reading — refresh the list. */
+async function listRefresh() {
+  if (Date.now() - listAt < 20000) return;
+  listAt = Date.now();
+  // don't yank the page out from under you: page two, a scrolled list or a
+  // search you are typing into all get a hint on the button instead
+  const main = document.querySelector('main');
+  const busy = state.offset > 0 || main.scrollTop > 400 || document.activeElement === $('#q');
+  if (busy) { $('#reindex').classList.add('stale'); $('#reindex').title = 'New activity — click to refresh'; return; }
+  try {
+    const at = main.scrollTop;
+    await get('/api/reindex');
+    await boot();
+    main.scrollTop = at;
+    $('#reindex').classList.remove('stale');
+    $('#reindex').title = 'Rescan ~/.claude/projects';
+  } catch (e) { /* ignore — the next tick tries again */ }
+}
+
+/** #c=<uid>[&s=<subagent path>][&l=<line>] — deep link, so a chat can be bookmarked. */
+function fromHash() {
+  const m = new URLSearchParams(location.hash.slice(1));
+  if (location.hash === '#dep') { setView('dep', true); return; }
+  if (location.hash === '#rec') { setView('rec', true); return; }
+  if (location.hash.startsWith('#dash')) {
+    const p = new URLSearchParams(location.hash.slice(1)).get('p');
+    if (p) state.project = p;
+    setView('dash', true); return;
+  }
+  const uid = m.get('c');
+  if (!uid) { if (openSid) closeChat(); return; }
+  const line = m.get('l');
+  openChat(uid, line != null ? +line : null, m.get('s'));
+}
+addEventListener('popstate', fromHash);
+
+/* ---------------- events ---------------- */
+let tmr;
+$('#q').oninput = e => {
+  clearTimeout(tmr);
+  const v = e.target.value;
+  tmr = setTimeout(() => { state.q = v.trim(); state.offset = 0; loadList(true); }, 220);
+};
+$('#sort').onchange = e => { state.sort = e.target.value; state.offset = 0; loadList(true); };
+$('#scrim').onclick = closeChat;
+
+/* ---------------- copying inside a chat ---------------- */
+
+/** The message you are looking at — the first one still on screen. */
+function currentTurn() {
+  const body = $('#dbody'), top = body.getBoundingClientRect().top;
+  let best = null;
+  body.querySelectorAll('.turn:not(.nomatch)').forEach(t => {
+    if (best) return;
+    if (t.getBoundingClientRect().bottom > top + 24) best = t;
+  });
+  return best;
+}
+function markCopied(t) {
+  t.classList.remove('copied'); void t.offsetWidth; t.classList.add('copied');
+  setTimeout(() => t.classList.remove('copied'), 1400);
+}
+function copyCurrentTurn() {
+  const t = currentTurn();
+  if (!t) { toast('No message on screen', true); return; }
+  copy(turnBlock(TURN.get(t.dataset.tid), true), 'Message copied');
+  markCopied(t);
+}
+function quoted(t) { return t ? t.split('\n').map(l => '> ' + l).join('\n') : ''; }
+
+// the per-message buttons live in markup that is redrawn constantly, so delegate
+$('#dbody').addEventListener('click', e => {
+  const b = e.target.closest('.acts button');
+  if (!b) return;
+  const turn = b.closest('.turn'), ev = TURN.get(turn.dataset.tid);
+  if (!ev) return;
+  if (b.dataset.act === 'copy') copyOn(b, turnBlock(ev, true), 'Message copied');
+  else if (b.dataset.act === 'quote') copyOn(b, quoted(turnText(ev, false)), 'Quote copied');
+  else if (b.dataset.act === 'pin') { markMessage(+turn.dataset.line); return; }
+  else if (b.dataset.act === 'link') {
+    copyOn(b, location.origin + location.pathname + '#c=' + encodeURIComponent(openSid) +
+      (openSub ? '&s=' + encodeURIComponent(openSub) : '') + '&l=' + turn.dataset.line,
+      'Link to this message copied');
+  }
+  markCopied(turn);
+});
+
+/* ---------------- selection: copy only the part you highlighted ---------------- */
+let selText = '';
+function hideSel() { const p = $('#selpop'); if (p) p.classList.remove('on'); }
+function showSel() {
+  const pop = $('#selpop'), body = $('#dbody');
+  const s = getSelection();
+  if (!s || !s.rangeCount || s.isCollapsed) return hideSel();
+  const txt = s.toString().trim();
+  if (!txt || !body.contains(s.anchorNode) || !body.contains(s.focusNode)) return hideSel();
+  selText = txt;
+  pop.innerHTML = `<button data-s="copy" title="Copy the highlighted text">⧉ Copy</button>
+    <button data-s="quote" title="Copy it with &gt; in front of every line">❝ Quote</button>
+    <button data-s="find" title="Show only the messages that contain it">⌕ In this chat</button>
+    <button data-s="all" title="Search every chat for it">⌕ All chats</button>
+    <span class="n">${num(txt.length)} chars · ${num(txt.split(/\s+/).length)} words</span>`;
+  pop.classList.add('on');
+  const r = s.getRangeAt(0).getBoundingClientRect();
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+  pop.style.top = (r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8) + 'px';
+}
+$('#selpop').onmousedown = e => e.preventDefault();     // clicking must not drop the selection
+$('#selpop').onclick = e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const t = selText;
+  if (b.dataset.s === 'copy') copyOn(b, t, 'Selection copied');
+  else if (b.dataset.s === 'quote') copyOn(b, quoted(t), 'Quote copied');
+  else if (b.dataset.s === 'find') {
+    const f = $('#dfind');
+    if (f) { f.value = t; filterTurns(t); }
+    hideSel();
+  } else {
+    hideSel(); closeChat();
+    $('#q').value = t; state.q = t; state.offset = 0; loadList(true);
+  }
+};
+document.addEventListener('mouseup', e => {
+  if ($('#selpop').contains(e.target)) return;
+  setTimeout(showSel, 0);
+});
+document.addEventListener('keyup', e => { if (e.shiftKey) setTimeout(showSel, 0); });
+$('#dbody').addEventListener('scroll', hideSel, { passive: true });
+$('#dbody').addEventListener('scroll', () => {
+  if (jumpMode === 'bottom' && atBottom($('#dbody'))) showJump(false);
+}, { passive: true });
+$('#djump').onclick = () => {
+  if (jumpMode === 'end') { openChat(openSid, null, openSub); return; }
+  const b = $('#dbody');
+  b.scrollTo({ top: b.scrollHeight, behavior: 'smooth' });
+  showJump(false);
+};
+document.addEventListener('mousedown', e => {
+  const t = e.target instanceof Element ? e.target : null;
+  if (!(t && t.closest('.menuwrap'))) closeMenus();
+});
+/* ---------- widths you can drag -----------------------------------------
+   Two edges: the projects list, and the left edge of an open chat. Project
+   paths are long, diffs are wide, and no two screens are the same. Both
+   remember where you put them, and neither is allowed to squeeze the other
+   side of the window away. */
+const SIDE_DEFAULT = 262, SIDE_MIN = 170, SIDE_MAX = 640, MAIN_MIN = 430;
+const DRAWER_MIN = 420;
+
+function setSide(px, save) {
+  const room = Math.max(SIDE_MIN, Math.min(SIDE_MAX, innerWidth - MAIN_MIN));
+  const w = Math.round(Math.max(SIDE_MIN, Math.min(px, room)));
+  document.documentElement.style.setProperty('--side', w + 'px');
+  $('#sidegrip').setAttribute('aria-valuenow', String(w));
+  if (save) localStorage.cchatSide = w;
+  return w;
+}
+const sideNow = () => parseFloat(getComputedStyle(document.documentElement)
+  .getPropertyValue('--side')) || SIDE_DEFAULT;
+
+const drawerDefault = () => Math.min(980, innerWidth * 0.92);
+function setDrawer(px, save) {
+  const room = Math.max(DRAWER_MIN, Math.min(1800, innerWidth - 40));
+  const w = Math.round(Math.max(DRAWER_MIN, Math.min(px, room)));
+  document.documentElement.style.setProperty('--drawer', w + 'px');
+  $('#dgrip').setAttribute('aria-valuenow', String(w));
+  if (save) localStorage.cchatDrawer = w;
+  return w;
+}
+const drawerNow = () => $('#drawer').getBoundingClientRect().width || drawerDefault();
+
+/** Wire one edge. `sign` is +1 when dragging right should make it wider. */
+function resizable(grip, read, apply, dflt, sign) {
+  let from = 0, start = 0;
+  grip.addEventListener('pointerdown', e => {
+    from = e.clientX; start = read();
+    grip.setPointerCapture(e.pointerId);
+    document.body.classList.add('sizing');
+    e.preventDefault();
+  });
+  grip.addEventListener('pointermove', e => {
+    if (grip.hasPointerCapture(e.pointerId)) apply(start + sign * (e.clientX - from), false);
+  });
+  const done = e => {
+    if (!grip.hasPointerCapture(e.pointerId)) return;
+    grip.releasePointerCapture(e.pointerId);
+    document.body.classList.remove('sizing');
+    apply(read(), true);
+  };
+  grip.addEventListener('pointerup', done);
+  grip.addEventListener('pointercancel', done);
+  grip.ondblclick = () => apply(dflt(), true);
+  grip.onkeydown = e => {
+    const step = (e.shiftKey ? 48 : 16) * sign;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); apply(read() - step, true); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); apply(read() + step, true); }
+    else if (e.key === 'Home') { e.preventDefault(); apply(dflt(), true); }
+    else return;
+    e.stopPropagation();                 // the chat owns the keyboard while it is open
+  };
+}
+setSide(+localStorage.cchatSide || SIDE_DEFAULT, false);
+if (+localStorage.cchatDrawer) setDrawer(+localStorage.cchatDrawer, false);
+resizable($('#sidegrip'), sideNow, setSide, () => SIDE_DEFAULT, 1);
+resizable($('#dgrip'), drawerNow, setDrawer, drawerDefault, -1);
+addEventListener('resize', () => {
+  setSide(+localStorage.cchatSide || SIDE_DEFAULT, false);
+  if (+localStorage.cchatDrawer) setDrawer(+localStorage.cchatDrawer, false);
+});
+
+$('#theme').onclick = () => {
+  const cur = document.documentElement.dataset.theme;
+  const dark = cur ? cur === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+  localStorage.cchatTheme = document.documentElement.dataset.theme;
+};
+if (localStorage.cchatTheme) document.documentElement.dataset.theme = localStorage.cchatTheme;
+$('#reindex').onclick = async () => {
+  const b = $('#reindex'); b.textContent = '↻ scanning…'; b.disabled = true;
+  try {
+    const s = await get('/api/reindex');
+    b.textContent = `↻ +${s.sessions} updated`;
+    b.classList.remove('stale');
+    listAt = Date.now();
+    await boot();
+  } catch (e) { b.textContent = '↻ failed'; }
+  setTimeout(() => { b.textContent = '↻ Refresh'; b.disabled = false; }, 2500);
+};
+function moveSel(step) {
+  const rows = [...document.querySelectorAll('#list .row')];
+  if (!rows.length) return;
+  rows.forEach(r => r.classList.remove('sel'));
+  sel = Math.max(0, Math.min(rows.length - 1, sel < 0 ? 0 : sel + step));
+  const el = rows[sel];
+  el.classList.add('sel');
+  el.scrollIntoView({ block: 'nearest' });
+}
+function selectedRow() { return document.querySelectorAll('#list .row')[sel]; }
+
+addEventListener('keydown', e => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if (e.key === 'Escape') {
+    if ($('#selpop').classList.contains('on')) { hideSel(); return; }
+    if (document.querySelector('.menu.on')) { closeMenus(); return; }
+    if (openSid) closeChat();
+    else if (document.activeElement === $('#q')) { $('#q').value = ''; state.q = ''; loadList(true); $('#q').blur(); }
+    return;
+  }
+  if ((e.key === '/' || (e.key === 'k' && (e.metaKey || e.ctrlKey))) && !typing) {
+    e.preventDefault(); $('#q').focus(); $('#q').select(); return;
+  }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (openSid) {                             // the drawer owns the keyboard while open
+    if (e.key === 'p') {
+      e.preventDefault();
+      const t = currentTurn();
+      if (t) markMessage(+t.dataset.line); else toast('No message on screen', true);
+    }
+    else if (e.key === 'P') { e.preventDefault(); nextPin(); }
+    else if (e.key === 'c') { e.preventDefault(); copyCurrentTurn(); }
+    else if (e.key === 'C') { e.preventDefault(); copyChat('all'); }
+    else if (e.key === 'a') { e.preventDefault(); toggleExpand(); }
+    else if (e.key === 'f') { e.preventDefault(); const f = $('#dfind'); if (f) { f.focus(); f.select(); } }
+    return;
+  }
+  if (e.key === 'j' || e.key === 'ArrowDown') { e.preventDefault(); moveSel(1); }
+  else if (e.key === 'k' || e.key === 'ArrowUp') { e.preventDefault(); moveSel(-1); }
+  else if (e.key === 'Enter') { const r = selectedRow(); if (r) { e.preventDefault(); r.click(); } }
+  else if (e.key === 'r') {
+    const r = selectedRow();
+    if (r) { e.preventDefault(); resume(r.dataset.uid, r.querySelector('.resume').dataset.cmd); }
+  }
+});
+
+// back from another tab: catch up at once, then let the live poll take over
+let lastSeen = Date.now();
+addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  scheduleLive(200);
+  if (openSid) return;
+  if (Date.now() - lastSeen < 20000) return;
+  lastSeen = Date.now();
+  boot().catch(() => {});
+});
+
+boot()
+  .then(() => {
+    if (location.hash === '#dep') setView('dep');
+    else if (location.hash === '#rec') setView('rec');
+    else if (location.hash.startsWith('#dash')) {
+      const p = new URLSearchParams(location.hash.slice(1)).get('p');
+      if (p) { state.project = p; renderProjects(); }
+      setView('dash');
+    } else if (location.hash.includes('c=')) fromHash();
+  })
+  .catch(e => { $('#list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; });
+scheduleLive(2000);
+</script>
+</body>
+</html>
